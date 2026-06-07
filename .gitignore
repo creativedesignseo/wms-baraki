@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local one-time prototype backup (safety net, not project source)
+supabase/_backup_prototipo_*/
