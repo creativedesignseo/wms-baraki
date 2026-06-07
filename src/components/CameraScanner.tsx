@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 // Camera barcode/QR fallback using html5-qrcode. The USB gun is the primary
 // path; this modal is the backup. Stops the camera cleanly on close/unmount.
@@ -11,35 +11,41 @@ export function CameraScanner({
   onScan: (text: string) => void;
   onClose: () => void;
 }) {
-  const containerId = useRef(`qr-reader-${Math.random().toString(36).slice(2)}`);
+  const reactId = useId();
+  const containerId = `qr-reader-${reactId.replace(/:/g, "")}`;
   const [error, setError] = useState<string | null>(null);
-  const stoppedRef = useRef(false);
+
+  // Keep the latest onScan without restarting the camera when the parent
+  // passes a new inline callback identity.
+  const onScanRef = useRef(onScan);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
 
   useEffect(() => {
     let scanner: import("html5-qrcode").Html5Qrcode | null = null;
     let cancelled = false;
+    let fired = false;
 
     (async () => {
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
         if (cancelled) return;
-        scanner = new Html5Qrcode(containerId.current);
+        scanner = new Html5Qrcode(containerId);
         await scanner.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 160 } },
           (decoded) => {
-            if (stoppedRef.current) return;
-            stoppedRef.current = true;
-            onScan(decoded);
+            if (fired) return;
+            fired = true;
+            onScanRef.current(decoded);
           },
           () => {
             /* per-frame decode errors are normal; ignore */
           },
         );
       } catch (e) {
-        setError(
-          e instanceof Error ? e.message : "No se pudo abrir la cámara",
-        );
+        setError(e instanceof Error ? e.message : "No se pudo abrir la cámara");
       }
     })();
 
@@ -52,7 +58,7 @@ export function CameraScanner({
           .catch(() => {});
       }
     };
-  }, [onScan]);
+  }, [containerId]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -71,10 +77,7 @@ export function CameraScanner({
             {error}
           </p>
         ) : (
-          <div
-            id={containerId.current}
-            className="overflow-hidden rounded-lg bg-black"
-          />
+          <div id={containerId} className="overflow-hidden rounded-lg bg-black" />
         )}
         <p className="mt-3 text-center text-xs text-slate-400">
           Apunta al código de barras
