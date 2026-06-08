@@ -212,32 +212,30 @@ export function ScanClient() {
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* ── form ── */}
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-900">Recepción</h1>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCamera(true)}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              📷 Cámara
-            </button>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              Sin código
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={onPhotoSelected}
-              className="hidden"
-            />
-          </div>
+        <h1 className="mb-3 text-xl font-bold text-slate-900">Recepción</h1>
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCamera(true)}
+            className="rounded-xl bg-slate-900 px-3 py-3 text-base font-semibold text-white active:bg-slate-700"
+          >
+            📷 Escanear
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="rounded-xl border border-slate-300 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-100"
+          >
+            📸 Sin código
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={onPhotoSelected}
+            className="hidden"
+          />
         </div>
 
         <label className="block text-sm font-medium text-slate-700">

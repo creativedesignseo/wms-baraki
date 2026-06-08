@@ -13,6 +13,7 @@
     "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
+    "barcode-detector": "^3.2.0",
     "html5-qrcode": "^2.3.8",
     "next": "16.2.7",
     "react": "19.2.4",
