@@ -10,7 +10,7 @@ import type {
 } from "@/lib/types";
 
 const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
+const MODEL = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash-lite";
 
 function apiKey(): string {
   const k = process.env.OPENROUTER_API_KEY;
