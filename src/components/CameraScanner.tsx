@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Flashlight, X } from "lucide-react";
 
 // Compact, EMBEDDED camera barcode reader (renders inline in the form — not a
 // full-screen takeover). Uses the BarcodeDetector API (native on Android Chrome;
@@ -177,18 +178,18 @@ export function CameraScanner({
           aria-label="Cerrar cámara"
           className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white active:bg-black/80"
         >
-          ✕
+          <X className="h-5 w-5" />
         </button>
 
         {/* torch */}
         {torchSupported && (
           <button
             onClick={toggleTorch}
-            className={`absolute bottom-2 left-2 rounded-full px-3 py-1.5 text-sm font-medium ${
+            className={`absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
               torchOn ? "bg-yellow-400 text-black" : "bg-black/60 text-white"
             }`}
           >
-            🔦
+            <Flashlight className="h-4 w-4" /> Linterna
           </button>
         )}
       </div>

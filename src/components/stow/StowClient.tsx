@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Package, Camera, PackagePlus } from "lucide-react";
 import { QuickNumPad } from "@/components/QuickNumPad";
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinStrip } from "@/components/stow/BinStrip";
@@ -252,8 +253,8 @@ export function StowClient({
           /* ── IDLE: scan prompt ── */
           <div>
             <div className="py-6 text-center">
-              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">
-                📦
+              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <Package className="h-8 w-8 text-slate-400" strokeWidth={1.5} />
               </div>
               <h1 className="text-2xl font-bold text-slate-900">Escanea un producto</h1>
               <p className="mt-1 text-slate-500">
@@ -273,16 +274,16 @@ export function StowClient({
               <button
                 type="button"
                 onClick={() => setShowCamera(true)}
-                className="rounded-xl bg-slate-900 px-3 py-3 text-base font-semibold text-white active:bg-slate-700"
+                className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-3 text-base font-semibold text-white active:bg-slate-700"
               >
-                📷 Cámara
+                <Camera className="h-5 w-5" /> Cámara
               </button>
               <button
                 type="button"
                 onClick={() => handleScan(null)}
-                className="rounded-xl border border-slate-300 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-100"
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-100"
               >
-                Sin código
+                <PackagePlus className="h-5 w-5" /> Sin código
               </button>
             </div>
 

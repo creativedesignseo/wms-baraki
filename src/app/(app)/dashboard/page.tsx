@@ -1,4 +1,5 @@
 // /dashboard — management panel (manager, owner). Amazon-style ops metrics.
+import { Trophy } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fefoLevel } from "@/lib/fefo";
@@ -179,8 +180,8 @@ export default async function DashboardPage() {
           <ul className="space-y-2">
             {operators.map((o, i) => (
               <li key={i} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700">
-                  {i === 0 && "🏆 "}
+                <span className="flex items-center gap-1.5 text-slate-700">
+                  {i === 0 && <Trophy className="h-4 w-4 text-amber-500" />}
                   {o.name}
                 </span>
                 <span className="font-semibold text-slate-900">
