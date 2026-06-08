@@ -44,8 +44,11 @@ export async function updateSession(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some(
     (p) => path === p || path.startsWith(`${p}/`),
   );
+  // API routes enforce their own auth and return JSON 401s — never redirect
+  // them to /login (a 307 to HTML would break the client's fetch().json()).
+  const isApi = path.startsWith("/api");
 
-  if (!user && !isPublic) {
+  if (!user && !isPublic && !isApi) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
