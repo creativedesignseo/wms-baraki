@@ -40,48 +40,50 @@ export function NavBar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-6">
-          <div>
+      <div className="mx-auto max-w-6xl px-4">
+        {/* row 1: brand + user/logout */}
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <div className="min-w-0 truncate">
             <span className="text-lg font-bold text-slate-900">[PRODUCT_NAME]</span>
             <span className="ml-2 hidden text-sm text-slate-500 sm:inline">
               {warehouseName}
             </span>
           </div>
-          <nav className="flex items-center gap-1">
-            {items.map((item) => {
-              const active =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-slate-600 sm:inline">
-            {fullName || "Usuario"}{" "}
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase text-slate-500">
-              {role}
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden text-sm text-slate-600 sm:inline">
+              {fullName || "Usuario"}{" "}
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase text-slate-500">
+                {role}
+              </span>
             </span>
-          </span>
-          <button
-            onClick={logout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-          >
-            Salir
-          </button>
+            <button
+              onClick={logout}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 active:bg-slate-100"
+            >
+              Salir
+            </button>
+          </div>
         </div>
+        {/* row 2: nav (scrolls horizontally if it ever overflows) */}
+        <nav className="-mx-1 flex items-center gap-1 overflow-x-auto pb-2">
+          {items.map((item) => {
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  active
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </header>
   );
