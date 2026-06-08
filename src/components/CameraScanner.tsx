@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Mobile-first camera barcode reader. Uses the BarcodeDetector API (native on
-// Android Chrome; WASM/ZXing fallback elsewhere incl. iOS via the ponyfill).
-// Auto-fires on the first detection, with haptic + beep feedback. Torch toggle
-// when the device supports it. Full-screen modal for warehouse phone use.
+// Compact, EMBEDDED camera barcode reader (renders inline in the form — not a
+// full-screen takeover). Uses the BarcodeDetector API (native on Android Chrome;
+// WASM/ZXing fallback on iOS via the ponyfill). Auto-fires on first detection
+// with haptic + beep feedback. Torch toggle when supported.
 
 const FORMATS = [
   "ean_13",
@@ -55,7 +55,6 @@ export function CameraScanner({
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
 
-  // Keep the latest onScan without restarting the camera on new identities.
   const onScanRef = useRef(onScan);
   useEffect(() => {
     onScanRef.current = onScan;
@@ -96,21 +95,18 @@ export function CameraScanner({
 
         const track = stream.getVideoTracks()[0];
         trackRef.current = track;
-        const caps =
-          (track.getCapabilities?.() as { torch?: boolean }) || {};
+        const caps = (track.getCapabilities?.() as { torch?: boolean }) || {};
         if (caps.torch) setTorchSupported(true);
 
         const video = videoRef.current;
         if (!video) return;
         video.srcObject = stream;
-        // playsInline is required so iOS Safari doesn't go fullscreen-native.
         video.setAttribute("playsinline", "true");
         await video.play();
         setReady(true);
 
         const loop = async (ts: number) => {
           if (cancelled || firedRef.current) return;
-          // throttle detection to ~8fps to keep it smooth on phones
           if (ts - lastTs > 120 && video.readyState >= 2) {
             lastTs = ts;
             try {
@@ -134,9 +130,7 @@ export function CameraScanner({
         setError(
           e instanceof Error && e.name === "NotAllowedError"
             ? "Permiso de cámara denegado. Actívalo en los ajustes del navegador."
-            : e instanceof Error
-              ? e.message
-              : "No se pudo abrir la cámara",
+            : "No se pudo abrir la cámara",
         );
       }
     }
@@ -151,25 +145,11 @@ export function CameraScanner({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
-      {/* top bar */}
-      <div className="flex items-center justify-between px-4 py-3 text-white">
-        <span className="font-semibold">Escanear código</span>
-        <button
-          onClick={onClose}
-          className="rounded-lg bg-white/15 px-4 py-2 text-sm font-medium active:bg-white/25"
-        >
-          Cerrar
-        </button>
-      </div>
-
-      {/* camera area */}
-      <div className="relative flex-1 overflow-hidden">
+    <div className="mt-3 overflow-hidden rounded-xl border border-slate-300 bg-black">
+      <div className="relative aspect-[4/3] w-full">
         {error ? (
-          <div className="flex h-full items-center justify-center p-6">
-            <p className="rounded-lg bg-red-500/90 px-4 py-3 text-center text-sm text-white">
-              {error}
-            </p>
+          <div className="flex h-full items-center justify-center p-4">
+            <p className="text-center text-sm text-white/90">{error}</p>
           </div>
         ) : (
           <>
@@ -180,35 +160,41 @@ export function CameraScanner({
               autoPlay
               playsInline
             />
-            {/* scan box overlay */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-40 w-72 max-w-[80vw] rounded-xl border-4 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+              <div className="h-24 w-52 max-w-[80%] rounded-lg border-[3px] border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
             </div>
             {!ready && (
-              <div className="absolute inset-0 flex items-center justify-center text-white/80">
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-white/80">
                 Abriendo cámara…
               </div>
             )}
           </>
         )}
-      </div>
 
-      {/* bottom controls */}
-      <div className="flex items-center justify-center gap-4 px-4 py-5">
+        {/* close */}
+        <button
+          onClick={onClose}
+          aria-label="Cerrar cámara"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white active:bg-black/80"
+        >
+          ✕
+        </button>
+
+        {/* torch */}
         {torchSupported && (
           <button
             onClick={toggleTorch}
-            className={`rounded-full px-5 py-3 text-sm font-semibold ${
-              torchOn ? "bg-yellow-400 text-black" : "bg-white/15 text-white"
+            className={`absolute bottom-2 left-2 rounded-full px-3 py-1.5 text-sm font-medium ${
+              torchOn ? "bg-yellow-400 text-black" : "bg-black/60 text-white"
             }`}
           >
-            🔦 Linterna
+            🔦
           </button>
         )}
-        <p className="text-center text-sm text-white/70">
-          Centra el código en el recuadro
-        </p>
       </div>
+      <p className="bg-slate-900 py-1.5 text-center text-xs text-white/70">
+        Centra el código en el recuadro · se captura solo
+      </p>
     </div>
   );
 }

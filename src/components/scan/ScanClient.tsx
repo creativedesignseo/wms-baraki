@@ -251,6 +251,17 @@ export function ScanClient() {
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 font-mono text-lg text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 disabled:bg-slate-50 disabled:text-slate-400"
         />
 
+        {showCamera && (
+          <CameraScanner
+            onScan={(text) => {
+              setBarcode(text);
+              setShowCamera(false);
+              focusBarcode();
+            }}
+            onClose={() => setShowCamera(false)}
+          />
+        )}
+
         {(noBarcode || identifying) && (
           <div className="mt-4 grid gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-2">
             <div className="sm:col-span-2 text-xs font-medium uppercase text-slate-500">
@@ -383,17 +394,6 @@ export function ScanClient() {
           </ul>
         )}
       </aside>
-
-      {showCamera && (
-        <CameraScanner
-          onScan={(text) => {
-            setBarcode(text);
-            setShowCamera(false);
-            focusBarcode();
-          }}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
     </div>
   );
 }
