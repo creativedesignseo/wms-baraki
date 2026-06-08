@@ -45,6 +45,37 @@ export interface Location {
   created_at: string;
 }
 
+// Amazon-style chaotic-within-zone storage.
+export interface Station {
+  id: string;
+  warehouse_id: string;
+  name: string;
+  zone: Zone;
+  active: boolean;
+  created_at: string;
+}
+
+export interface Bin {
+  id: string;
+  warehouse_id: string;
+  station_id: string;
+  code: string;
+  position: number;
+  zone: Zone;
+  capacity: number;
+  active: boolean;
+  created_at: string;
+}
+
+export interface BinOccupancy {
+  bin_id: string;
+  warehouse_id: string;
+  station_id: string;
+  capacity: number;
+  used: number;
+  pct: number;
+}
+
 export interface Product {
   id: string;
   warehouse_id: string;
@@ -71,6 +102,7 @@ export interface Batch {
   warehouse_id: string;
   product_id: string;
   location_id: string | null;
+  bin_id: string | null;
   quantity: number;
   condition: Condition;
   origin: Origin;

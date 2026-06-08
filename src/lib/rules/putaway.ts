@@ -120,3 +120,103 @@ export function suggestLocation(
     reason: `Zona ${zone}, ${weightClass}, nivel ${scored[0].level}`,
   };
 }
+
+// ── Chaotic-within-zone bin assignment (Amazon-style stow) ───────────────────
+
+const FULL_PCT = 100;
+const FILLING_PCT = 70;
+
+export interface BinForStow {
+  id: string;
+  station_id: string;
+  station_name: string;
+  code: string;
+  position: number;
+  zone: Zone;
+  capacity: number;
+  used: number; // active units currently in the bin (from bin_occupancy)
+  active: boolean;
+  hasSameProduct?: boolean; // bin already holds the product being stowed
+}
+
+export type BinStripColor = "suggested" | "free" | "filling" | "full";
+
+export interface BinStripCell {
+  id: string;
+  code: string;
+  position: number;
+  pct: number;
+  color: BinStripColor;
+}
+
+export interface BinSuggestion {
+  zone: Zone;
+  binId: string | null;
+  binCode: string | null;
+  stationId: string | null;
+  stationName: string | null;
+  strip: BinStripCell[]; // bins of the suggested bin's station, ordered
+  reason: string;
+}
+
+function pctOf(used: number, capacity: number): number {
+  if (capacity <= 0) return 100;
+  return Math.round((100 * used) / capacity);
+}
+
+/**
+ * Pick a bin for an item, chaotic but constrained to the right temperature zone.
+ * Preference: a bin already holding the same product (consolidation), then the
+ * least-full eligible bin. Returns the suggested bin and the color-coded strip
+ * for that bin's station so the operator sees exactly where to place it.
+ */
+export function suggestBin(
+  input: PutawayInput & { productId?: string | null; forceZone?: Zone },
+  bins: BinForStow[],
+): BinSuggestion {
+  // The operator works AT a station (which fixes the zone); forceZone uses it.
+  // Falls back to inferring the zone from the product when no station is given.
+  const zone = input.forceZone ?? inferZone(input.category, input.expiration_date !== null);
+
+  const inZone = bins.filter((b) => b.active && b.zone === zone);
+  const eligible = inZone.filter((b) => b.used < b.capacity);
+  const consolidate = eligible.filter((b) => b.hasSameProduct);
+  const pool = consolidate.length > 0 ? consolidate : eligible;
+
+  const chosen =
+    pool.length > 0
+      ? [...pool].sort(
+          (a, b) =>
+            a.used / a.capacity - b.used / b.capacity || a.position - b.position,
+        )[0]
+      : null;
+
+  // The strip shows the bins of the chosen bin's station (or, if none eligible,
+  // any station in the required zone so the operator still sees the zone state).
+  const stationId =
+    chosen?.station_id ?? inZone[0]?.station_id ?? null;
+  const strip: BinStripCell[] = bins
+    .filter((b) => b.station_id === stationId)
+    .sort((a, b) => a.position - b.position)
+    .map((b) => {
+      const pct = pctOf(b.used, b.capacity);
+      let color: BinStripColor;
+      if (chosen && b.id === chosen.id) color = "suggested";
+      else if (pct >= FULL_PCT || !b.active) color = "full";
+      else if (pct >= FILLING_PCT) color = "filling";
+      else color = "free";
+      return { id: b.id, code: b.code, position: b.position, pct, color };
+    });
+
+  return {
+    zone,
+    binId: chosen?.id ?? null,
+    binCode: chosen?.code ?? null,
+    stationId,
+    stationName: chosen?.station_name ?? null,
+    strip,
+    reason: chosen
+      ? `Zona ${zone} · bin ${chosen.code}${consolidate.length ? " (consolida mismo producto)" : ""}`
+      : `Sin bin libre en zona ${zone}`,
+  };
+}

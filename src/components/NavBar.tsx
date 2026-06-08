@@ -12,9 +12,10 @@ interface NavItem {
 }
 
 const ITEMS: NavItem[] = [
-  { href: "/scan", label: "Escanear", roles: ["operator", "manager", "owner"] },
-  { href: "/approval", label: "Aprobación", roles: ["manager", "owner"] },
+  { href: "/stow", label: "Stow", roles: ["operator", "manager", "owner"] },
   { href: "/inventory", label: "Inventario", roles: ["operator", "manager", "owner"] },
+  { href: "/approval", label: "Aprobación", roles: ["manager", "owner"] },
+  { href: "/dashboard", label: "Panel", roles: ["manager", "owner"] },
   { href: "/settings", label: "Ajustes", roles: ["owner"] },
 ];
 

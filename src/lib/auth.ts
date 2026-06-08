@@ -54,9 +54,9 @@ export async function requireRole(...roles: Role[]): Promise<AuthContext> {
 export function defaultPageForRole(role: Role): string {
   switch (role) {
     case "operator":
-      return "/scan";
+      return "/stow";
     case "manager":
-      return "/scan";
+      return "/stow";
     case "owner":
       return "/inventory";
     default:

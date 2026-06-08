@@ -92,15 +92,16 @@ export default async function InventoryPage({
   }
 
   if (productIds.length > 0) {
-    const locEmbed = zoneFilter ? "locations!inner(name, zone)" : "locations(name, zone)";
+    // Bins are the real storage now; embed them (zone filter joins bins.zone).
+    const binEmbed = zoneFilter ? "bins!inner(code, zone)" : "bins(code, zone)";
     let batchQuery = supabase
       .from("batches")
-      .select(`*, ${locEmbed}`)
+      .select(`*, ${binEmbed}, locations(name, zone)`)
       .eq("warehouse_id", warehouseId)
       .in("product_id", productIds)
       .eq("status", statusFilter)
       .order("expiration_date", { ascending: true, nullsFirst: false });
-    if (zoneFilter) batchQuery = batchQuery.eq("locations.zone", zoneFilter);
+    if (zoneFilter) batchQuery = batchQuery.eq("bins.zone", zoneFilter);
 
     const { data: batches } = await batchQuery;
 
@@ -127,6 +128,7 @@ export default async function InventoryPage({
       }
       const row = rowsById.get(b.product_id);
       if (!row) continue;
+      const bin = b.bins as { code?: string; zone?: string } | null;
       const loc = b.locations as { name?: string; zone?: string } | null;
       row.batches.push({
         id: b.id,
@@ -136,8 +138,8 @@ export default async function InventoryPage({
         expiration_date: b.expiration_date,
         reception_date: b.reception_date,
         status: b.status,
-        locationName: loc?.name ?? null,
-        zone: (loc?.zone as Zone) ?? null,
+        locationName: bin?.code ?? loc?.name ?? null,
+        zone: ((bin?.zone ?? loc?.zone) as Zone) ?? null,
         operatorName: operatorNames.get(b.operator_id) ?? "—",
       });
       row.totalQty += b.quantity;

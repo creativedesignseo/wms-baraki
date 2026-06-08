@@ -121,6 +121,7 @@ type BatchRow = {
   warehouse_id: string;
   product_id: string;
   location_id: string | null;
+  bin_id: string | null;
   quantity: number;
   condition: Condition;
   origin: Origin;
@@ -136,6 +137,7 @@ type BatchInsert = {
   warehouse_id: string;
   product_id: string;
   location_id?: string | null;
+  bin_id?: string | null;
   quantity: number;
   condition: Condition;
   origin?: Origin;
@@ -144,6 +146,46 @@ type BatchInsert = {
   status?: BatchStatus;
   operator_id: string;
   notes?: string | null;
+  created_at?: string;
+};
+
+type StationRow = {
+  id: string;
+  warehouse_id: string;
+  name: string;
+  zone: Zone;
+  active: boolean;
+  created_at: string;
+};
+type StationInsert = {
+  id?: string;
+  warehouse_id: string;
+  name: string;
+  zone: Zone;
+  active?: boolean;
+  created_at?: string;
+};
+
+type BinRow = {
+  id: string;
+  warehouse_id: string;
+  station_id: string;
+  code: string;
+  position: number;
+  zone: Zone;
+  capacity: number;
+  active: boolean;
+  created_at: string;
+};
+type BinInsert = {
+  id?: string;
+  warehouse_id: string;
+  station_id: string;
+  code: string;
+  position?: number;
+  zone: Zone;
+  capacity?: number;
+  active?: boolean;
   created_at?: string;
 };
 
@@ -180,6 +222,18 @@ export type Database = {
         Update: Partial<BatchInsert>;
         Relationships: [];
       };
+      stations: {
+        Row: StationRow;
+        Insert: StationInsert;
+        Update: Partial<StationInsert>;
+        Relationships: [];
+      };
+      bins: {
+        Row: BinRow;
+        Insert: BinInsert;
+        Update: Partial<BinInsert>;
+        Relationships: [];
+      };
     };
     Views: {
       current_stock: {
@@ -187,6 +241,17 @@ export type Database = {
           warehouse_id: string;
           product_id: string;
           total_quantity: number;
+        };
+        Relationships: [];
+      };
+      bin_occupancy: {
+        Row: {
+          bin_id: string;
+          warehouse_id: string;
+          station_id: string;
+          capacity: number;
+          used: number;
+          pct: number;
         };
         Relationships: [];
       };
