@@ -46,16 +46,16 @@ export function InventoryFilters({
   }
 
   const sel =
-    "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-900";
+    "w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-900 sm:w-auto";
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <form onSubmit={submitSearch} className="flex gap-2">
+    <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <form onSubmit={submitSearch} className="col-span-2 sm:w-56">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar nombre o código…"
-          className={sel + " w-56"}
+          className={sel}
         />
       </form>
 
