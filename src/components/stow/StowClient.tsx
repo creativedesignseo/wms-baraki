@@ -12,7 +12,6 @@ interface StationOpt {
   name: string;
   zone: Zone;
 }
-
 interface Suggestion {
   zone: Zone;
   binId: string | null;
@@ -21,14 +20,14 @@ interface Suggestion {
   strip: BinStripCell[];
   reason: string;
 }
-
 interface Scanned {
   productId: string;
   label: string;
+  category: string | null;
+  barcode: string | null;
   enrichmentStatus: EnrichmentStatus;
   suggestion: Suggestion;
 }
-
 interface RecentItem {
   id: string;
   label: string;
@@ -53,6 +52,12 @@ const ZONE_LABEL: Record<Zone, string> = {
   congelado: "Congelado",
   hazmat: "Hazmat",
 };
+const ZONE_BAR: Record<Zone, string> = {
+  general: "bg-slate-800",
+  refrigerado: "bg-cyan-600",
+  congelado: "bg-blue-700",
+  hazmat: "bg-amber-600",
+};
 
 function mmyyToDate(mmyy: string): string | null {
   const m = mmyy.replace(/\D/g, "");
@@ -64,7 +69,13 @@ function mmyyToDate(mmyy: string): string | null {
   return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 }
 
-export function StowClient({ stations }: { stations: StationOpt[] }) {
+export function StowClient({
+  stations,
+  stationStrips,
+}: {
+  stations: StationOpt[];
+  stationStrips: Record<string, BinStripCell[]>;
+}) {
   const [stationId, setStationId] = useState(stations[0]?.id ?? "");
   const [barcode, setBarcode] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -79,12 +90,16 @@ export function StowClient({ stations }: { stations: StationOpt[] }) {
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [showMeta, setShowMeta] = useState(false);
 
   const barcodeRef = useRef<HTMLInputElement>(null);
   const focusBarcode = useCallback(() => {
     requestAnimationFrame(() => barcodeRef.current?.focus());
   }, []);
   useEffect(() => focusBarcode(), [focusBarcode]);
+
+  const station = stations.find((s) => s.id === stationId);
+  const zone = station?.zone ?? "general";
 
   function resetForNext() {
     setScanned(null);
@@ -97,7 +112,7 @@ export function StowClient({ stations }: { stations: StationOpt[] }) {
 
   async function handleScan(code: string | null) {
     if (!stationId) {
-      setError("Selecciona una estación primero");
+      setError("Selecciona una estación");
       return;
     }
     setError(null);
@@ -115,14 +130,14 @@ export function StowClient({ stations }: { stations: StationOpt[] }) {
       }
       const s: Scanned = {
         productId: data.product_id,
-        label: data.product?.name || code || "(sin nombre)",
+        label: data.product?.name || code || "Producto sin nombre",
+        category: data.product?.category ?? null,
+        barcode: data.barcode ?? code,
         enrichmentStatus: data.enrichment_status,
         suggestion: data.suggestion,
       };
       setScanned(s);
       setSelectedBinId(s.suggestion.binId);
-
-      // fire-and-forget enrichment (never blocks the stow)
       if (data.enrichment_status === "queued") {
         fetch("/api/enrich", {
           method: "POST",
@@ -171,12 +186,9 @@ export function StowClient({ stations }: { stations: StationOpt[] }) {
       }
       navigator.vibrate?.(120);
       setRecent((prev) =>
-        [
-          { id: data.batch_id, label: scanned.label, quantity, binCode: data.bin_code },
-          ...prev,
-        ].slice(0, 20),
+        [{ id: data.batch_id, label: scanned.label, quantity, binCode: data.bin_code }, ...prev].slice(0, 20),
       );
-      setFlash(`✓ ${scanned.label} ×${quantity} → bin ${data.bin_code}`);
+      setFlash(`✓ ${scanned.label} ×${quantity} → ${data.bin_code}`);
       setTimeout(() => setFlash(null), 2200);
       resetForNext();
     } catch {
@@ -195,56 +207,225 @@ export function StowClient({ stations }: { stations: StationOpt[] }) {
     );
   }
 
-  const station = stations.find((s) => s.id === stationId);
+  const selectedCode =
+    scanned?.suggestion.strip.find((c) => c.id === selectedBinId)?.code ??
+    scanned?.suggestion.binCode ??
+    null;
+  const idleStrip = stationStrips[stationId] ?? [];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h1 className="mb-3 text-xl font-bold text-slate-900">Stow (guardar)</h1>
-
-        {/* station picker */}
-        <label className="block text-sm font-medium text-slate-700">Estación</label>
+    <div className="mx-auto max-w-3xl">
+      {/* ── station header bar (zone color) ── */}
+      <div
+        className={`flex items-center justify-between gap-3 rounded-t-2xl px-5 py-3 text-white ${ZONE_BAR[zone]}`}
+      >
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium uppercase tracking-wide opacity-80">
+            Estación · {ZONE_LABEL[zone]}
+          </div>
+          <div className="truncate text-xl font-bold">{station?.name}</div>
+        </div>
         <select
           value={stationId}
           onChange={(e) => {
             setStationId(e.target.value);
             resetForNext();
           }}
-          className="mt-1 mb-4 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-slate-900"
+          className="rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white outline-none [&>option]:text-slate-900"
         >
           {stations.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name} · {ZONE_LABEL[s.zone]}
+              {s.name}
             </option>
           ))}
         </select>
+      </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setShowCamera(true)}
-            className="rounded-xl bg-slate-900 px-3 py-3 text-base font-semibold text-white active:bg-slate-700"
-          >
-            📷 Escanear
-          </button>
-          <button
-            type="button"
-            onClick={() => handleScan(null)}
-            className="rounded-xl border border-slate-300 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-100"
-          >
-            Sin código
-          </button>
-        </div>
+      <div className="rounded-b-2xl border border-t-0 border-slate-200 bg-white p-5">
+        {flash && (
+          <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-center text-base font-semibold text-green-700">
+            {flash}
+          </p>
+        )}
 
-        <label className="block text-sm font-medium text-slate-700">Código de barras</label>
-        <input
-          ref={barcodeRef}
-          value={barcode}
-          onChange={(e) => setBarcode(e.target.value)}
-          onKeyDown={onBarcodeKeyDown}
-          placeholder="Escanea con la pistola o teclea…"
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 font-mono text-lg text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-        />
+        {!scanned ? (
+          /* ── IDLE: scan prompt ── */
+          <div>
+            <div className="py-6 text-center">
+              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">
+                📦
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900">Escanea un producto</h1>
+              <p className="mt-1 text-slate-500">
+                Lo guardamos en un bin de {ZONE_LABEL[zone]}
+              </p>
+            </div>
+
+            <input
+              ref={barcodeRef}
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              onKeyDown={onBarcodeKeyDown}
+              placeholder="Escanea con la pistola o teclea…"
+              className="w-full rounded-xl border-2 border-slate-300 px-4 py-4 text-center font-mono text-xl text-slate-900 outline-none focus:border-slate-900"
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="rounded-xl bg-slate-900 px-3 py-3 text-base font-semibold text-white active:bg-slate-700"
+              >
+                📷 Cámara
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScan(null)}
+                className="rounded-xl border border-slate-300 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-100"
+              >
+                Sin código
+              </button>
+            </div>
+
+            {idleStrip.length > 0 && (
+              <div className="mt-6">
+                <div className="mb-2 text-xs font-medium uppercase text-slate-400">
+                  Bins de la estación
+                </div>
+                <BinStrip cells={idleStrip} />
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ── SCANNED: stow target ── */
+          <div className="space-y-5">
+            {/* big target */}
+            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="min-w-0">
+                <div className="text-xs font-medium uppercase text-slate-400">
+                  Producto {scanned.enrichmentStatus === "queued" && "· identificando…"}
+                </div>
+                <div className="truncate text-xl font-bold text-slate-900">
+                  {scanned.label}
+                </div>
+                {scanned.barcode && (
+                  <div className="font-mono text-sm text-slate-400">{scanned.barcode}</div>
+                )}
+                {scanned.category && (
+                  <div className="mt-1 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                    {scanned.category}
+                  </div>
+                )}
+              </div>
+              {/* HUGE bin target */}
+              {selectedCode ? (
+                <div className="rounded-2xl bg-green-500 px-6 py-4 text-center text-white">
+                  <div className="text-[11px] font-semibold uppercase opacity-85">Guardar en</div>
+                  <div className="font-mono text-3xl font-extrabold leading-tight">
+                    {selectedCode}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-red-100 px-6 py-4 text-center text-red-700">
+                  <div className="text-sm font-semibold">{scanned.suggestion.reason}</div>
+                </div>
+              )}
+            </div>
+
+            {/* strip */}
+            <div>
+              <div className="mb-2 text-xs font-medium uppercase text-slate-400">
+                Toca otro bin para cambiar
+              </div>
+              <BinStrip
+                cells={scanned.suggestion.strip}
+                selectedBinId={selectedBinId}
+                onSelect={setSelectedBinId}
+              />
+            </div>
+
+            {/* quantity */}
+            <div>
+              <div className="mb-1 text-sm font-medium text-slate-700">Cantidad</div>
+              <QuickNumPad value={quantity} onChange={setQuantity} />
+            </div>
+
+            {/* confirm — big */}
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={busy || !selectedBinId}
+              className="w-full rounded-2xl bg-green-600 px-4 py-5 text-xl font-bold text-white transition hover:bg-green-700 disabled:opacity-50"
+            >
+              {busy ? "Guardando…" : "Confirmar stow"}
+            </button>
+
+            {/* secondary meta (collapsed) */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowMeta((v) => !v)}
+                className="text-sm font-medium text-slate-500 underline-offset-2 hover:underline"
+              >
+                {showMeta ? "Ocultar detalles" : "Condición / origen / caducidad"}
+              </button>
+              {showMeta && (
+                <div className="mt-2 grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Condición</label>
+                    <select
+                      value={condition}
+                      onChange={(e) => setCondition(e.target.value as Condition)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+                    >
+                      {CONDITIONS.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Origen</label>
+                    <select
+                      value={origin}
+                      onChange={(e) => setOrigin(e.target.value as Origin)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+                    >
+                      {ORIGINS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Caducidad (MMYY)</label>
+                    <input
+                      value={expiry}
+                      onChange={(e) => setExpiry(e.target.value)}
+                      inputMode="numeric"
+                      maxLength={5}
+                      placeholder="1226"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-slate-900 outline-none focus:border-slate-900"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={resetForNext}
+              className="w-full text-center text-sm text-slate-400 hover:text-slate-600"
+            >
+              Cancelar y escanear otro
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        )}
 
         {showCamera && (
           <CameraScanner
@@ -256,128 +437,28 @@ export function StowClient({ stations }: { stations: StationOpt[] }) {
             onClose={() => setShowCamera(false)}
           />
         )}
-
-        {/* quantity + meta */}
-        <div className="mt-5">
-          <label className="block text-sm font-medium text-slate-700">Cantidad</label>
-          <div className="mt-1">
-            <QuickNumPad value={quantity} onChange={setQuantity} />
-          </div>
-        </div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Condición</label>
-            <select
-              value={condition}
-              onChange={(e) => setCondition(e.target.value as Condition)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
-            >
-              {CONDITIONS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Origen</label>
-            <select
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value as Origin)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
-            >
-              {ORIGINS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Caducidad (MMYY)</label>
-            <input
-              value={expiry}
-              onChange={(e) => setExpiry(e.target.value)}
-              inputMode="numeric"
-              maxLength={5}
-              placeholder="1226"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-slate-900 outline-none focus:border-slate-900"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-        )}
-
-        {/* stow target — appears after scanning */}
-        {scanned && (
-          <div className="mt-5 rounded-xl border-2 border-slate-900 p-4">
-            <div className="mb-1 text-xs font-medium uppercase text-slate-500">
-              Guardar en bin · {station ? ZONE_LABEL[station.zone] : ""}
-            </div>
-            <p className="mb-3 truncate font-semibold text-slate-900">{scanned.label}</p>
-            {scanned.suggestion.binCode ? (
-              <p className="mb-2 text-sm text-slate-600">
-                Bin sugerido:{" "}
-                <span className="font-mono font-bold text-green-700">
-                  {scanned.suggestion.binCode}
-                </span>{" "}
-                <span className="text-slate-400">(toca otro para cambiar)</span>
-              </p>
-            ) : (
-              <p className="mb-2 text-sm text-red-700">{scanned.suggestion.reason}</p>
-            )}
-            <BinStrip
-              cells={scanned.suggestion.strip}
-              selectedBinId={selectedBinId}
-              onSelect={setSelectedBinId}
-            />
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={busy || !selectedBinId}
-              className="mt-3 w-full rounded-xl bg-green-600 px-4 py-4 text-lg font-bold text-white transition hover:bg-green-700 disabled:opacity-50"
-            >
-              {busy ? "Guardando…" : "Confirmar stow"}
-            </button>
-          </div>
-        )}
-
-        {!scanned && (
-          <p className="mt-5 text-center text-sm text-slate-400">
-            Escanea un producto para ver a qué bin va.
-          </p>
-        )}
-      </section>
+      </div>
 
       {/* recent */}
-      <aside className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Guardados en esta sesión</h2>
-        {flash && (
-          <p className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{flash}</p>
-        )}
-        {recent.length === 0 ? (
-          <p className="text-sm text-slate-400">Aún no has guardado nada.</p>
-        ) : (
-          <ul className="space-y-2">
-            {recent.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-900">{r.label}</p>
-                  <p className="text-xs text-slate-500">×{r.quantity}</p>
-                </div>
-                <span className="rounded-full bg-slate-900 px-2 py-0.5 font-mono text-xs text-white">
+      {recent.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">
+            Guardados en esta sesión ({recent.length})
+          </h2>
+          <ul className="space-y-1.5">
+            {recent.slice(0, 8).map((r) => (
+              <li key={r.id} className="flex items-center justify-between text-sm">
+                <span className="min-w-0 truncate text-slate-700">
+                  {r.label} <span className="text-slate-400">×{r.quantity}</span>
+                </span>
+                <span className="ml-2 shrink-0 rounded-full bg-slate-900 px-2 py-0.5 font-mono text-xs text-white">
                   {r.binCode}
                 </span>
               </li>
             ))}
           </ul>
-        )}
-      </aside>
+        </div>
+      )}
     </div>
   );
 }
