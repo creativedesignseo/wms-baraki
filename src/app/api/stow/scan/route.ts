@@ -1,17 +1,20 @@
-// POST /api/stow/scan — Amazon-style stow step 1 (read/suggest, no batch yet).
-// Resolves/creates the minimal product for the barcode and suggests a bin within
-// the operator's station (chaotic-within-zone). The CLIENT fires /api/enrich
-// fire-and-forget after this returns; the batch is created later by /api/stow/confirm.
+// POST /api/stow/scan — stow step 1 (read/suggest, no batch yet).
+// Resolves/creates the minimal product and suggests a bin. The ZONE is driven by
+// the product (default "general"/ambiente for non-perishables), not by a fixed
+// station — the operator can override the zone for cold items. The client fires
+// /api/enrich fire-and-forget; the batch is created by /api/stow/confirm.
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthContext } from "@/lib/auth";
-import { suggestBin, type BinForStow } from "@/lib/rules/putaway";
+import { suggestBin, inferZone, type BinForStow } from "@/lib/rules/putaway";
 import type { Zone, EnrichmentStatus } from "@/lib/types";
+
+const ZONES: Zone[] = ["general", "refrigerado", "congelado", "hazmat"];
 
 interface ScanBody {
   barcode: string | null;
-  station_id: string;
+  zone?: Zone; // optional operator override; otherwise inferred from product
 }
 
 export async function POST(request: Request) {
@@ -26,24 +29,10 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
-  if (!body.station_id) {
-    return NextResponse.json({ error: "Falta station_id" }, { status: 400 });
-  }
   const barcode = body.barcode?.trim() || null;
 
   const supabase = await createClient();
   const wh = ctx.profile.warehouse_id;
-
-  // ── station (validate + get its zone) ───────────────────────────────────────
-  const { data: station } = await supabase
-    .from("stations")
-    .select("id, name, zone")
-    .eq("id", body.station_id)
-    .eq("warehouse_id", wh)
-    .maybeSingle();
-  if (!station) {
-    return NextResponse.json({ error: "Estación no encontrada" }, { status: 404 });
-  }
 
   // ── resolve or create the product (reuse by barcode within tenant) ──────────
   let productId: string | null = null;
@@ -69,7 +58,6 @@ export async function POST(request: Request) {
       .select("id")
       .single();
     if (prodErr || !created) {
-      // race on the partial unique (barcode) index → re-select
       if (barcode) {
         const { data: retry } = await supabase
           .from("products")
@@ -96,14 +84,22 @@ export async function POST(request: Request) {
     .eq("id", productId)
     .single();
 
-  // ── bins of this station + occupancy + which already hold this product ──────
+  // ── decide the zone: operator override → else inferred from the product ─────
+  // (At scan time a brand-new product has no category yet → "general"/Ambiente.)
+  const zone: Zone =
+    body.zone && ZONES.includes(body.zone)
+      ? body.zone
+      : inferZone(product?.category ?? null, false);
+
+  // ── bins of that ZONE (across stations) + occupancy + same-product bins ─────
   const [{ data: bins }, { data: occ }, { data: sameBatches }] = await Promise.all([
     supabase
       .from("bins")
-      .select("id, station_id, code, position, zone, capacity, active")
+      .select("id, station_id, code, position, zone, capacity, active, stations(name)")
       .eq("warehouse_id", wh)
-      .eq("station_id", station.id)
-      .eq("active", true),
+      .eq("zone", zone)
+      .eq("active", true)
+      .order("position", { ascending: true }),
     supabase.from("bin_occupancy").select("bin_id, used").eq("warehouse_id", wh),
     supabase
       .from("batches")
@@ -117,18 +113,21 @@ export async function POST(request: Request) {
   const usedMap = new Map((occ ?? []).map((o) => [o.bin_id, o.used]));
   const sameSet = new Set((sameBatches ?? []).map((b) => b.bin_id));
 
-  const binsForStow: BinForStow[] = (bins ?? []).map((b) => ({
-    id: b.id,
-    station_id: b.station_id,
-    station_name: station.name,
-    code: b.code,
-    position: b.position,
-    zone: b.zone as Zone,
-    capacity: b.capacity,
-    used: usedMap.get(b.id) ?? 0,
-    active: b.active,
-    hasSameProduct: sameSet.has(b.id),
-  }));
+  const binsForStow: BinForStow[] = (bins ?? []).map((b) => {
+    const st = b.stations as { name?: string } | null;
+    return {
+      id: b.id,
+      station_id: b.station_id,
+      station_name: st?.name ?? "",
+      code: b.code,
+      position: b.position,
+      zone: b.zone as Zone,
+      capacity: b.capacity,
+      used: usedMap.get(b.id) ?? 0,
+      active: b.active,
+      hasSameProduct: sameSet.has(b.id),
+    };
+  });
 
   const suggestion = suggestBin(
     {
@@ -136,7 +135,7 @@ export async function POST(request: Request) {
       weight: product?.weight ?? null,
       expiration_date: null,
       productId,
-      forceZone: station.zone as Zone,
+      forceZone: zone,
     },
     binsForStow,
   );
@@ -146,7 +145,7 @@ export async function POST(request: Request) {
     barcode,
     enrichment_status: (product?.enrichment_status ?? "manual") as EnrichmentStatus,
     product: { name: product?.name ?? null, category: product?.category ?? null },
-    station: { id: station.id, name: station.name, zone: station.zone },
+    zone,
     suggestion,
   });
 }
