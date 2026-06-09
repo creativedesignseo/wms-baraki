@@ -1,5 +1,14 @@
 // /dashboard — management panel (manager, owner). Amazon-style ops metrics.
-import { Trophy } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Trophy,
+  Package,
+  Users,
+  ClipboardCheck,
+  AlertTriangle,
+  Boxes,
+  Gauge,
+} from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fefoLevel } from "@/lib/fefo";
@@ -122,29 +131,40 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-900">Panel de operación</h1>
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+          <Gauge className="h-5 w-5" />
+        </span>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Panel de operación
+        </h1>
+      </div>
 
       {/* top metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Ítems hoy" value={itemsToday} />
-        <Metric label="Operarios activos hoy" value={operators.length} />
+        <Metric label="Ítems hoy" value={itemsToday} icon={Package} />
+        <Metric label="Operarios hoy" value={operators.length} icon={Users} />
         <Metric
-          label="Pendientes de aprobar"
+          label="Pendientes"
           value={pendingCount ?? 0}
+          icon={ClipboardCheck}
           tone={pendingCount ? "amber" : "default"}
         />
         <Metric
           label="Caducidad crítica"
           value={rojo}
           sub={`${amarillo} próximas`}
+          icon={AlertTriangle}
           tone={rojo ? "red" : "default"}
         />
       </div>
 
       {/* occupancy by zone */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Ocupación de bins por zona</h2>
-        <div className="space-y-3">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <Boxes className="h-4 w-4 text-slate-400" /> Ocupación de bins por zona
+        </h2>
+        <div className="space-y-3.5">
           {ZONES.filter((z) => zoneStats.has(z)).map((z) => {
             const s = zoneStats.get(z)!;
             const pct = s.cap ? Math.round((100 * s.used) / s.cap) : 0;
@@ -172,20 +192,34 @@ export default async function DashboardPage() {
       </section>
 
       {/* operator rates */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Productividad hoy (por operario)</h2>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <Trophy className="h-4 w-4 text-slate-400" /> Productividad hoy (por operario)
+        </h2>
         {operators.length === 0 ? (
           <p className="text-sm text-slate-400">Sin actividad hoy.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {operators.map((o, i) => (
-              <li key={i} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-slate-700">
-                  {i === 0 && <Trophy className="h-4 w-4 text-amber-500" />}
-                  {o.name}
+              <li
+                key={i}
+                className="flex items-center justify-between rounded-xl px-3 py-2.5 odd:bg-slate-50"
+              >
+                <span className="flex items-center gap-2.5 text-sm">
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                      i === 0
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="font-medium text-slate-800">{o.name}</span>
                 </span>
-                <span className="font-semibold text-slate-900">
-                  {o.qty} u <span className="font-normal text-slate-400">/ {o.lines} líneas</span>
+                <span className="text-sm font-semibold text-slate-900">
+                  {o.qty} u{" "}
+                  <span className="font-normal text-slate-400">/ {o.lines} líneas</span>
                 </span>
               </li>
             ))}
@@ -215,22 +249,30 @@ function Metric({
   value,
   sub,
   tone = "default",
+  icon: Icon,
 }: {
   label: string;
   value: number | string;
   sub?: string;
   tone?: "default" | "amber" | "red";
+  icon: LucideIcon;
 }) {
-  const toneCls =
-    tone === "red"
-      ? "text-red-600"
-      : tone === "amber"
-        ? "text-amber-600"
-        : "text-slate-900";
+  const t = {
+    default: { value: "text-slate-900", chip: "bg-slate-100 text-slate-500" },
+    amber: { value: "text-amber-600", chip: "bg-amber-100 text-amber-600" },
+    red: { value: "text-red-600", chip: "bg-red-100 text-red-600" },
+  }[tone];
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="text-xs font-medium uppercase text-slate-500">{label}</div>
-      <div className={`mt-1 text-3xl font-bold ${toneCls}`}>{value}</div>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          {label}
+        </span>
+        <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${t.chip}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <div className={`mt-2 text-3xl font-bold tabular-nums ${t.value}`}>{value}</div>
       {sub && <div className="text-xs text-slate-400">{sub}</div>}
     </div>
   );
