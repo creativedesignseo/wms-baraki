@@ -50,3 +50,6 @@ Investigacion app warehouse amazon/
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# stray screenshots at repo root
+/*.png
