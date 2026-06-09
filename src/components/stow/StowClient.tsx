@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Package, Camera, PackagePlus } from "lucide-react";
 import { QuickNumPad } from "@/components/QuickNumPad";
 import { CameraScanner } from "@/components/CameraScanner";
-import { BinStrip } from "@/components/stow/BinStrip";
+import { BinStrip, binColor } from "@/components/stow/BinStrip";
 import type { BinStripCell } from "@/lib/rules/putaway";
 import type { Condition, Origin, EnrichmentStatus, Zone } from "@/lib/types";
 
@@ -211,10 +211,14 @@ export function StowClient({
     );
   }
 
+  const strip = scanned?.suggestion.strip ?? [];
+  const selectedIndex = strip.findIndex((c) => c.id === selectedBinId);
   const selectedCode =
-    scanned?.suggestion.strip.find((c) => c.id === selectedBinId)?.code ??
+    (selectedIndex >= 0 ? strip[selectedIndex].code : null) ??
     scanned?.suggestion.binCode ??
     null;
+  // The big "Guardar en" callout uses the SAME color as the bin's strip cell.
+  const targetColor = selectedIndex >= 0 ? binColor(selectedIndex, strip.length) : null;
   const idleStrip = stationStrips[stationId] ?? [];
 
   const field =
@@ -325,11 +329,14 @@ export function StowClient({
                   )}
                 </div>
                 {selectedCode ? (
-                  <div className="rounded-2xl bg-green-500 px-6 py-4 text-center text-white">
-                    <div className="text-[11px] font-bold uppercase tracking-wide opacity-85">
+                  <div
+                    className="rounded-2xl px-6 py-4 text-center text-white shadow-md ring-1 ring-black/10"
+                    style={{ backgroundColor: targetColor ?? "#16a34a" }}
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wide opacity-90">
                       Guardar en
                     </div>
-                    <div className={`text-4xl font-extrabold leading-tight ${NUM}`}>
+                    <div className={`text-4xl font-extrabold leading-tight drop-shadow ${NUM}`}>
                       {selectedCode}
                     </div>
                   </div>
