@@ -59,7 +59,7 @@ export function AppShell({
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
           <Warehouse className="h-5 w-5" />
         </span>
         <div className="min-w-0">
@@ -79,10 +79,10 @@ export function AppShell({
               key={it.href}
               href={it.href}
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
                 active
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "bg-brand-soft font-semibold text-brand"
+                  : "font-medium text-slate-600 hover:bg-slate-100"
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" /> {it.label}

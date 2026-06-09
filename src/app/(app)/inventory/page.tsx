@@ -158,7 +158,9 @@ export default async function InventoryPage({
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-bold text-slate-900">Inventario</h1>
+      <h1 className="mb-4 font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-ink">
+        Inventario
+      </h1>
       <InventoryFilters
         categories={categories}
         current={{
