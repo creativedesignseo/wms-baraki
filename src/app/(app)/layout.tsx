@@ -1,7 +1,8 @@
-// App shell — enforces auth (real authorization boundary) and renders the nav.
+// App shell — enforces auth (real authorization boundary) and renders the
+// full-width console (sidebar + top bar) via AppShell.
 import { requireAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { NavBar } from "@/components/NavBar";
+import { AppShell } from "@/components/AppShell";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,12 @@ export default async function AppLayout({
     .maybeSingle();
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <NavBar
-        role={ctx.profile.role}
-        fullName={ctx.profile.full_name}
-        warehouseName={warehouse?.name ?? "Almacén"}
-      />
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
-    </div>
+    <AppShell
+      role={ctx.profile.role}
+      fullName={ctx.profile.full_name}
+      warehouseName={warehouse?.name ?? "Almacén"}
+    >
+      {children}
+    </AppShell>
   );
 }
