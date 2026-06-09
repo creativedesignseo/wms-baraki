@@ -37,12 +37,14 @@ export interface InventoryRow {
 }
 
 function Thumb({ src, name }: { src: string | null; name: string | null }) {
-  if (src) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={name ?? ""}
+        onError={() => setFailed(true)}
         className="h-12 w-12 shrink-0 rounded-xl border border-slate-200 object-cover"
       />
     );
