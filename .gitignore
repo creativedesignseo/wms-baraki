@@ -47,3 +47,6 @@ supabase/_backup_prototipo_*/
 
 # Carpeta de investigación (material de referencia, no es código de la app)
 Investigacion app warehouse amazon/
+
+# Playwright MCP artifacts
+.playwright-mcp/
