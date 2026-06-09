@@ -2,17 +2,17 @@
 
 import type { BinStripCell } from "@/lib/rules/putaway";
 
-// Amazon-style color-coded bin strip — dark "command deck" theme. The
-// suggested/selected bin glows lime; others show occupancy. When onSelect is
-// provided, non-full cells are tappable to override the target.
+// Amazon-style color-coded bin strip (light theme). The suggested/selected bin
+// glows green; others show occupancy. When onSelect is provided, non-full cells
+// are tappable to override the target.
 function occClass(color: BinStripCell["color"]): string {
   switch (color) {
     case "full":
-      return "bg-red-500/15 text-red-300 border-red-500/30";
+      return "bg-red-100 text-red-800 border-red-200";
     case "filling":
-      return "bg-amber-400/15 text-amber-200 border-amber-400/30";
+      return "bg-amber-100 text-amber-800 border-amber-200";
     default:
-      return "bg-white/5 text-slate-300 border-white/10";
+      return "bg-slate-50 text-slate-600 border-slate-200";
   }
 }
 
@@ -26,7 +26,7 @@ export function BinStrip({
   onSelect?: (binId: string) => void;
 }) {
   if (cells.length === 0) {
-    return <p className="text-sm text-slate-500">Esta estación no tiene bins activos.</p>;
+    return <p className="text-sm text-slate-400">Esta estación no tiene bins activos.</p>;
   }
 
   return (
@@ -35,7 +35,7 @@ export function BinStrip({
         const selected = c.id === selectedBinId;
         const isFull = c.color === "full";
         const cls = selected
-          ? "bg-lime-400 text-slate-900 border-lime-300 ring-2 ring-lime-400/40 scale-105"
+          ? "bg-green-500 text-white border-green-400 ring-2 ring-green-200 scale-105"
           : occClass(c.color);
         const clickable = Boolean(onSelect) && (!isFull || selected);
         return (

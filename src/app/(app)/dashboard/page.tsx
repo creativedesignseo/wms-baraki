@@ -1,4 +1,4 @@
-// /dashboard — management panel (manager, owner). "Command deck" ops monitor.
+// /dashboard — management panel (manager, owner). Light ops monitor.
 import type { LucideIcon } from "lucide-react";
 import {
   Trophy,
@@ -77,7 +77,6 @@ export default async function DashboardPage() {
       .order("name", { ascending: true }),
   ]);
 
-  // ── items stowed today + per-operator ───────────────────────────────────────
   const itemsToday = (todayBatches ?? []).reduce((s, b) => s + b.quantity, 0);
   const perOp = new Map<string, { qty: number; lines: number }>();
   for (const b of todayBatches ?? []) {
@@ -99,7 +98,6 @@ export default async function DashboardPage() {
     .map(([id, v]) => ({ name: opNames.get(id) ?? "—", ...v }))
     .sort((a, b) => b.qty - a.qty);
 
-  // ── bin occupancy by zone ───────────────────────────────────────────────────
   const usedMap = new Map((occ ?? []).map((o) => [o.bin_id, o.used]));
   const zoneStats = new Map<Zone, { cap: number; used: number; bins: number; full: number }>();
   for (const b of bins ?? []) {
@@ -113,7 +111,6 @@ export default async function DashboardPage() {
     zoneStats.set(z, cur);
   }
 
-  // ── FEFO alerts ──────────────────────────────────────────────────────────────
   let rojo = 0;
   let amarillo = 0;
   for (const b of expBatches ?? []) {
@@ -122,7 +119,6 @@ export default async function DashboardPage() {
     else if (lvl === "amarillo") amarillo += 1;
   }
 
-  // bins grouped by station (for the manager)
   const binsByStation = new Map<string, number>();
   const usedByStation = new Map<string, number>();
   const capByStation = new Map<string, number>();
@@ -136,159 +132,114 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      {/* ── command deck (dark monitoring) ── */}
-      <div className="relative overflow-hidden rounded-3xl bg-[#0a0e17] p-5 text-slate-200 shadow-2xl ring-1 ring-white/10 sm:p-7">
-        {/* atmosphere: signal glow + faint grid */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(55% 110% at 100% 0%, rgba(163,230,53,0.13), transparent 60%), radial-gradient(45% 90% at 0% 0%, rgba(56,189,248,0.10), transparent 55%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.05]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)",
-            backgroundSize: "34px 34px",
-          }}
-        />
-
-        <div className="relative">
-          {/* header */}
-          <div className="deck-rise flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-lime-300/90">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lime-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-lime-400" />
-                </span>
-                En vivo
-              </div>
-              <h1 className={`mt-1.5 text-3xl font-extrabold tracking-tight text-white ${DISPLAY}`}>
-                Panel de operación
-              </h1>
-            </div>
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
-              <Gauge className="h-5 w-5 text-white/50" />
-            </span>
-          </div>
-
-          {/* metrics */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Metric label="Ítems hoy" value={itemsToday} icon={Package} delay={0.05} />
-            <Metric label="Operarios hoy" value={operators.length} icon={Users} delay={0.1} />
-            <Metric
-              label="Pendientes"
-              value={pendingCount ?? 0}
-              icon={ClipboardCheck}
-              tone={pendingCount ? "amber" : "default"}
-              delay={0.15}
-            />
-            <Metric
-              label="Caducidad crítica"
-              value={rojo}
-              sub={`${amarillo} próximas`}
-              icon={AlertTriangle}
-              tone={rojo ? "red" : "default"}
-              delay={0.2}
-            />
-          </div>
-
-          {/* occupancy + leaderboard */}
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <section
-              className="deck-rise rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/10"
-              style={{ animationDelay: "0.25s" }}
-            >
-              <h2 className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                <Boxes className="h-4 w-4" /> Ocupación de bins por zona
-              </h2>
-              {occupiedZones.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  No hay bins todavía. Crea una estación abajo.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {occupiedZones.map((z) => {
-                    const s = zoneStats.get(z)!;
-                    const pct = s.cap ? Math.round((100 * s.used) / s.cap) : 0;
-                    const fill =
-                      pct >= 90
-                        ? "from-red-500 to-red-400"
-                        : pct >= 70
-                          ? "from-amber-500 to-amber-300"
-                          : "from-lime-500 to-lime-300";
-                    return (
-                      <div key={z}>
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <span className="text-sm font-medium text-slate-200">
-                            {ZONE_LABEL[z]}
-                          </span>
-                          <span className={`text-xs text-slate-400 ${NUM}`}>
-                            {s.used}/{s.cap} · {s.full}/{s.bins} llenos
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                            <div
-                              className={`h-full rounded-full bg-gradient-to-r ${fill}`}
-                              style={{ width: `${Math.min(100, Math.max(2, pct))}%` }}
-                            />
-                          </div>
-                          <span className={`w-11 text-right text-sm font-bold text-white ${NUM}`}>
-                            {pct}%
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section
-              className="deck-rise rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/10"
-              style={{ animationDelay: "0.32s" }}
-            >
-              <h2 className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                <Trophy className="h-4 w-4" /> Productividad hoy
-              </h2>
-              {operators.length === 0 ? (
-                <p className="text-sm text-slate-500">Sin actividad hoy.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {operators.map((o, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between rounded-xl bg-white/[0.03] px-3 py-2.5"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <span
-                          className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${NUM} ${
-                            i === 0 ? "bg-lime-400 text-slate-900" : "bg-white/10 text-slate-300"
-                          }`}
-                        >
-                          {i + 1}
-                        </span>
-                        <span className="font-medium text-slate-100">{o.name}</span>
-                      </span>
-                      <span className={`text-sm font-semibold text-white ${NUM}`}>
-                        {o.qty} u <span className="text-slate-500">/ {o.lines}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
-        </div>
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+          <Gauge className="h-5 w-5" />
+        </span>
+        <h1 className={`text-2xl font-extrabold tracking-tight text-slate-900 ${DISPLAY}`}>
+          Panel de operación
+        </h1>
       </div>
 
-      {/* ── management (light) ── */}
+      {/* metrics */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Metric label="Ítems hoy" value={itemsToday} icon={Package} />
+        <Metric label="Operarios hoy" value={operators.length} icon={Users} />
+        <Metric
+          label="Pendientes"
+          value={pendingCount ?? 0}
+          icon={ClipboardCheck}
+          tone={pendingCount ? "amber" : "default"}
+        />
+        <Metric
+          label="Caducidad crítica"
+          value={rojo}
+          sub={`${amarillo} próximas`}
+          icon={AlertTriangle}
+          tone={rojo ? "red" : "default"}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* occupancy */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <Boxes className="h-4 w-4 text-slate-400" /> Ocupación de bins por zona
+          </h2>
+          {occupiedZones.length === 0 ? (
+            <p className="text-sm text-slate-400">No hay bins todavía. Crea una estación abajo.</p>
+          ) : (
+            <div className="space-y-4">
+              {occupiedZones.map((z) => {
+                const s = zoneStats.get(z)!;
+                const pct = s.cap ? Math.round((100 * s.used) / s.cap) : 0;
+                const fill =
+                  pct >= 90
+                    ? "from-red-500 to-red-400"
+                    : pct >= 70
+                      ? "from-amber-500 to-amber-300"
+                      : "from-green-500 to-green-400";
+                return (
+                  <div key={z}>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-700">{ZONE_LABEL[z]}</span>
+                      <span className={`text-xs text-slate-400 ${NUM}`}>
+                        {s.used}/{s.cap} · {s.full}/{s.bins} llenos
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${fill}`}
+                          style={{ width: `${Math.min(100, Math.max(2, pct))}%` }}
+                        />
+                      </div>
+                      <span className={`w-11 text-right text-sm font-bold text-slate-900 ${NUM}`}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* leaderboard */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <Trophy className="h-4 w-4 text-slate-400" /> Productividad hoy
+          </h2>
+          {operators.length === 0 ? (
+            <p className="text-sm text-slate-400">Sin actividad hoy.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {operators.map((o, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-xl px-3 py-2.5 odd:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${NUM} ${
+                        i === 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="font-medium text-slate-800">{o.name}</span>
+                  </span>
+                  <span className={`text-sm font-semibold text-slate-900 ${NUM}`}>
+                    {o.qty} u <span className="font-normal text-slate-400">/ {o.lines}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {/* stations + bins management */}
       <StationsManager
         warehouseId={wh}
         stations={(stations ?? []).map((s) => ({
@@ -311,35 +262,30 @@ function Metric({
   sub,
   tone = "default",
   icon: Icon,
-  delay = 0,
 }: {
   label: string;
   value: number | string;
   sub?: string;
   tone?: "default" | "amber" | "red";
   icon: LucideIcon;
-  delay?: number;
 }) {
   const t = {
-    default: { num: "text-white", chip: "bg-white/10 text-slate-300" },
-    amber: { num: "text-amber-300", chip: "bg-amber-400/15 text-amber-300" },
-    red: { num: "text-red-300", chip: "bg-red-400/15 text-red-300" },
+    default: { value: "text-slate-900", chip: "bg-slate-100 text-slate-500" },
+    amber: { value: "text-amber-600", chip: "bg-amber-100 text-amber-600" },
+    red: { value: "text-red-600", chip: "bg-red-100 text-red-600" },
   }[tone];
   return (
-    <div
-      className="deck-rise rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/10"
-      style={{ animationDelay: `${delay}s` }}
-    >
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           {label}
         </span>
         <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${t.chip}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <div className={`mt-2 text-4xl font-bold ${NUM} ${t.num}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-[11px] text-slate-500">{sub}</div>}
+      <div className={`mt-2 text-4xl font-bold ${NUM} ${t.value}`}>{value}</div>
+      {sub && <div className="mt-0.5 text-[11px] text-slate-400">{sub}</div>}
     </div>
   );
 }
