@@ -20,10 +20,13 @@ export function BinStrip({
   cells,
   selectedBinId,
   onSelect,
+  fill = false,
 }: {
   cells: BinStripCell[];
   selectedBinId?: string | null;
   onSelect?: (binId: string) => void;
+  /** When true, the grid stretches rows to fill its container height. */
+  fill?: boolean;
 }) {
   if (cells.length === 0) {
     return <p className="text-sm text-slate-400">Esta estación no tiene bins activos.</p>;
@@ -31,7 +34,10 @@ export function BinStrip({
   const total = cells.length;
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-2">
+    <div
+      className={`grid gap-3 ${fill ? "flex-1 [grid-auto-rows:1fr]" : ""}`}
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(7rem, 1fr))" }}
+    >
       {cells.map((c, i) => {
         const selected = c.id === selectedBinId;
         const isFull = c.color === "full";
@@ -44,7 +50,7 @@ export function BinStrip({
             onClick={() => onSelect?.(c.id)}
             title={`${c.code} · ${c.pct}%`}
             style={{ backgroundColor: binColor(i, total) }}
-            className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl font-[family-name:var(--font-num)] text-white transition ${
+            className={`relative flex min-h-[7rem] flex-col items-center justify-center rounded-2xl font-[family-name:var(--font-num)] text-white transition ${
               selected
                 ? "z-10 scale-105 shadow-lg ring-4 ring-slate-900"
                 : "ring-1 ring-black/10"
@@ -52,10 +58,10 @@ export function BinStrip({
               isFull && !selected ? "opacity-35 grayscale" : ""
             }`}
           >
-            <span className="text-3xl font-bold leading-none tabular-nums drop-shadow">
+            <span className="text-4xl font-bold leading-none tabular-nums drop-shadow">
               {c.position}
             </span>
-            <span className="mt-1 text-xs font-medium opacity-90">{c.pct}%</span>
+            <span className="mt-1.5 text-xs font-medium opacity-90">{c.pct}%</span>
             {isFull && !selected && (
               <span className="absolute bottom-1.5 text-[9px] font-bold uppercase">lleno</span>
             )}

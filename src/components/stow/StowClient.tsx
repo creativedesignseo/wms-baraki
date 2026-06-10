@@ -219,8 +219,8 @@ export function StowClient({
     "rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900";
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {/* header: zone selector */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
@@ -248,7 +248,7 @@ export function StowClient({
           </div>
         </div>
 
-        <div className="px-5 py-5">
+        <div className="flex flex-1 flex-col px-5 py-5">
           {flash && (
             <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-center text-base font-semibold text-green-700 ring-1 ring-green-200">
               ✓ {flash}
@@ -256,7 +256,7 @@ export function StowClient({
           )}
 
           {!scanned ? (
-            <div className="grid gap-8 lg:grid-cols-[minmax(340px,30rem)_1fr]">
+            <div className="flex flex-1 flex-col gap-8 lg:grid lg:grid-cols-[minmax(320px,26rem)_1fr]">
               {/* left: scan controls */}
               <div>
                 <div className="py-4 text-center lg:text-left">
@@ -300,16 +300,16 @@ export function StowClient({
 
               {/* right: bin wall (fills the screen on a work monitor) */}
               {idleStrip.length > 0 && (
-                <div>
+                <div className="flex flex-col">
                   <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Bins de {ZONE_LABEL[zone]}
                   </div>
-                  <BinStrip cells={idleStrip} />
+                  <BinStrip cells={idleStrip} fill />
                 </div>
               )}
             </div>
           ) : (
-            <div className="grid gap-8 lg:grid-cols-[minmax(340px,30rem)_1fr]">
+            <div className="flex flex-1 flex-col gap-8 lg:grid lg:grid-cols-[minmax(320px,26rem)_1fr]">
               {/* left: product + actions */}
               <div className="space-y-5">
                 <div className="min-w-0">
@@ -359,8 +359,8 @@ export function StowClient({
               </div>
 
               {/* right: bin wall */}
-              <div className="space-y-5">
-                <div>
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col">
                   <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Toca otro bin para cambiar
                   </div>
@@ -368,6 +368,7 @@ export function StowClient({
                     cells={scanned.suggestion.strip}
                     selectedBinId={selectedBinId}
                     onSelect={setSelectedBinId}
+                    fill
                   />
                 </div>
 

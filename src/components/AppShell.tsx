@@ -111,7 +111,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       {/* desktop sidebar (fixed) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-slate-200 bg-white lg:block">
         {sidebar}
@@ -135,7 +135,7 @@ export function AppShell({
       )}
 
       {/* content area */}
-      <div className="lg:pl-60">
+      <div className="flex flex-1 flex-col lg:pl-60">
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur lg:px-8">
           <button
             onClick={() => setOpen(true)}
@@ -155,7 +155,7 @@ export function AppShell({
             En vivo · {warehouseName}
           </div>
         </header>
-        <main className="px-4 py-6 lg:px-8">{children}</main>
+        <main className="flex flex-1 flex-col px-4 py-6 lg:px-8">{children}</main>
       </div>
     </div>
   );
