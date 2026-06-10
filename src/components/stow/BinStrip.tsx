@@ -31,7 +31,7 @@ export function BinStrip({
   const total = cells.length;
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto px-0.5 pb-2 pt-1">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-2">
       {cells.map((c, i) => {
         const selected = c.id === selectedBinId;
         const isFull = c.color === "full";
@@ -44,20 +44,20 @@ export function BinStrip({
             onClick={() => onSelect?.(c.id)}
             title={`${c.code} · ${c.pct}%`}
             style={{ backgroundColor: binColor(i, total) }}
-            className={`relative flex h-[4.5rem] w-16 shrink-0 flex-col items-center justify-center rounded-xl font-[family-name:var(--font-num)] text-white transition ${
+            className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl font-[family-name:var(--font-num)] text-white transition ${
               selected
-                ? "z-10 scale-110 shadow-lg ring-4 ring-slate-900"
+                ? "z-10 scale-105 shadow-lg ring-4 ring-slate-900"
                 : "ring-1 ring-black/10"
             } ${clickable ? "active:scale-95" : "cursor-default"} ${
               isFull && !selected ? "opacity-35 grayscale" : ""
             }`}
           >
-            <span className="text-2xl font-bold leading-none tabular-nums drop-shadow">
+            <span className="text-3xl font-bold leading-none tabular-nums drop-shadow">
               {c.position}
             </span>
-            <span className="mt-1 text-[11px] font-medium opacity-90">{c.pct}%</span>
+            <span className="mt-1 text-xs font-medium opacity-90">{c.pct}%</span>
             {isFull && !selected && (
-              <span className="absolute bottom-1 text-[9px] font-bold uppercase">lleno</span>
+              <span className="absolute bottom-1.5 text-[9px] font-bold uppercase">lleno</span>
             )}
           </button>
         );

@@ -219,7 +219,7 @@ export function StowClient({
     "rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="space-y-4">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {/* header: zone selector */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
@@ -256,45 +256,51 @@ export function StowClient({
           )}
 
           {!scanned ? (
-            <div>
-              <div className="py-6 text-center">
-                <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-                  <Package className="h-8 w-8 text-slate-400" strokeWidth={1.5} />
+            <div className="grid gap-8 lg:grid-cols-[minmax(340px,30rem)_1fr]">
+              {/* left: scan controls */}
+              <div>
+                <div className="py-4 text-center lg:text-left">
+                  <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 lg:mx-0">
+                    <Package className="h-7 w-7 text-slate-400" strokeWidth={1.5} />
+                  </div>
+                  <h1 className={`text-3xl font-extrabold text-ink ${DISPLAY}`}>
+                    Escanea un producto
+                  </h1>
+                  <p className="mt-1 text-slate-500">
+                    Irá a un bin de <strong className="text-slate-700">{ZONE_LABEL[zone]}</strong>
+                    {" "}· cámbialo arriba si es frío/congelado
+                  </p>
                 </div>
-                <h1 className={`text-3xl font-extrabold text-ink ${DISPLAY}`}>Escanea un producto</h1>
-                <p className="mt-1 text-slate-500">
-                  Irá a un bin de <strong className="text-slate-700">{ZONE_LABEL[zone]}</strong>
-                  {" "}· cámbialo arriba si es frío/congelado
-                </p>
+
+                <input
+                  ref={barcodeRef}
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  onKeyDown={onBarcodeKeyDown}
+                  placeholder="Escanea con la pistola o teclea…"
+                  className={`w-full rounded-xl border-2 border-slate-300 px-4 py-4 text-center text-xl text-slate-900 outline-none focus:border-brand ${NUM}`}
+                />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCamera(true)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-ink px-3 py-3 text-base font-semibold text-white active:opacity-90"
+                  >
+                    <Camera className="h-5 w-5" /> Cámara
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => doScan(null, zone)}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-100"
+                  >
+                    <PackagePlus className="h-5 w-5" /> Sin código
+                  </button>
+                </div>
               </div>
 
-              <input
-                ref={barcodeRef}
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-                onKeyDown={onBarcodeKeyDown}
-                placeholder="Escanea con la pistola o teclea…"
-                className={`w-full rounded-xl border-2 border-slate-300 px-4 py-4 text-center text-xl text-slate-900 outline-none focus:border-brand ${NUM}`}
-              />
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCamera(true)}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-ink px-3 py-3 text-base font-semibold text-white active:opacity-90"
-                >
-                  <Camera className="h-5 w-5" /> Cámara
-                </button>
-                <button
-                  type="button"
-                  onClick={() => doScan(null, zone)}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3 py-3 text-base font-semibold text-slate-700 active:bg-slate-100"
-                >
-                  <PackagePlus className="h-5 w-5" /> Sin código
-                </button>
-              </div>
-
+              {/* right: bin wall (fills the screen on a work monitor) */}
               {idleStrip.length > 0 && (
-                <div className="mt-6">
+                <div>
                   <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Bins de {ZONE_LABEL[zone]}
                   </div>
@@ -303,8 +309,9 @@ export function StowClient({
               )}
             </div>
           ) : (
-            <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="grid gap-8 lg:grid-cols-[minmax(340px,30rem)_1fr]">
+              {/* left: product + actions */}
+              <div className="space-y-5">
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     Producto {scanned.enrichmentStatus === "queued" && "· identificando…"}
@@ -319,13 +326,14 @@ export function StowClient({
                     </div>
                   )}
                 </div>
+
                 {selectedCode ? (
                   <div
-                    className="rounded-2xl px-6 py-4 text-center text-white shadow-md ring-1 ring-black/10"
+                    className="rounded-2xl px-6 py-5 text-center text-white shadow-md ring-1 ring-black/10"
                     style={{ backgroundColor: targetColor ?? "#16a34a" }}
                   >
                     <div className="text-[11px] font-bold uppercase tracking-wide opacity-90">Guardar en</div>
-                    <div className={`text-4xl font-extrabold leading-tight drop-shadow ${NUM}`}>
+                    <div className={`text-5xl font-extrabold leading-tight drop-shadow ${NUM}`}>
                       {selectedCode}
                     </div>
                   </div>
@@ -334,32 +342,34 @@ export function StowClient({
                     <div className="text-sm font-semibold">{scanned.suggestion.reason}</div>
                   </div>
                 )}
-              </div>
 
-              <div>
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  Toca otro bin para cambiar
+                <div>
+                  <div className="mb-1 text-sm font-medium text-slate-700">Cantidad</div>
+                  <QuickNumPad value={quantity} onChange={setQuantity} />
                 </div>
-                <BinStrip
-                  cells={scanned.suggestion.strip}
-                  selectedBinId={selectedBinId}
-                  onSelect={setSelectedBinId}
-                />
+
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={busy || !selectedBinId}
+                  className="w-full rounded-2xl bg-green-600 px-4 py-5 text-xl font-extrabold text-white transition hover:bg-green-700 disabled:opacity-50"
+                >
+                  {busy ? "Guardando…" : "Confirmar stow"}
+                </button>
               </div>
 
-              <div>
-                <div className="mb-1 text-sm font-medium text-slate-700">Cantidad</div>
-                <QuickNumPad value={quantity} onChange={setQuantity} />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={busy || !selectedBinId}
-                className="w-full rounded-2xl bg-green-600 px-4 py-5 text-xl font-extrabold text-white transition hover:bg-green-700 disabled:opacity-50"
-              >
-                {busy ? "Guardando…" : "Confirmar stow"}
-              </button>
+              {/* right: bin wall */}
+              <div className="space-y-5">
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Toca otro bin para cambiar
+                  </div>
+                  <BinStrip
+                    cells={scanned.suggestion.strip}
+                    selectedBinId={selectedBinId}
+                    onSelect={setSelectedBinId}
+                  />
+                </div>
 
               <div>
                 <button
@@ -414,13 +424,14 @@ export function StowClient({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={resetForNext}
-                className="w-full text-center text-sm text-slate-400 hover:text-slate-600"
-              >
-                Cancelar y escanear otro
-              </button>
+                <button
+                  type="button"
+                  onClick={resetForNext}
+                  className="w-full text-center text-sm text-slate-400 hover:text-slate-600"
+                >
+                  Cancelar y escanear otro
+                </button>
+              </div>
             </div>
           )}
 
