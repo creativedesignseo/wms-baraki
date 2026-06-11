@@ -5,8 +5,13 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `671d460` — `fix(stow): adversarial-review fixes for the one-order redesign`
-- **Deploy Vercel:** `wms-bdh71s3b5…` · estado **● READY** · Production · alias activo
+- **Commit desplegado:** `13274d9` — `feat(stow): operator can correct product identity at stow time`
+- **Deploy Vercel:** `wms-2mc15xek2…` · estado **● READY** · Production · alias activo
+- **Editor del operario (nuevo):** botón "Editar" en Guardar → corrige nombre /
+  categoría / código sin esperar al gerente. Escribir una categoría re-infiere la zona
+  (ej. "Lácteos" en un Sin-código → salta solo a Refrigerado). Endpoint
+  `/api/products/identify` (service-role, whitelist solo identidad — **nunca precio**;
+  scoped por warehouse). El **precio sigue siendo exclusivo del gerente en /approval**.
 - **Verificación (2026-06-11):**
   - `tsc --noEmit` / `eslint` / `next build` → limpios
   - Playwright en PRODUCCIÓN: idle minimalista; mantequilla `036800265257` → orden
@@ -72,12 +77,14 @@ deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
 
 ## Pendiente (priorizado)
 
-1. **Editar categoría desde /approval** para productos `failed` → cierra el círculo de
-   identificación manual sin tocar SQL (ver sección "Identificación").
-2. Limpiar productos demo `(sin nombre)` con stock 0 (SQL opcional entregado en chat).
+1. **Foto del producto por el operario** (capturar con cámara cuando no hay imagen del
+   proveedor; guardar en Supabase Storage privado por almacén). El operario lo pidió
+   para liquidaciones random sin código/sin imagen. La edición de identidad YA está;
+   falta la captura+subida de foto y el modo "tomar foto" de la cámara.
+2. Limpiar productos de prueba sin identificar (SQL opcional entregado en chat).
 3. Sustituir placeholder `[PRODUCT_NAME]` por el nombre comercial final.
 4. Página legacy `/scan` sigue existiendo (sin enlace en nav) — decidir si se elimina.
-5. (Opcional) Proveedor UPC de pago si se necesita cobertura ~total de códigos.
+5. (Opcional) OCR de fecha de caducidad con la cámara; proveedor UPC de pago.
 
 ## Hecho este turno (zonas producto-céntricas)
 
