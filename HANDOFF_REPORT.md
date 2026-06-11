@@ -1,17 +1,36 @@
 # HANDOFF — WMS Baraki Logística
 
-> Realidad **verificada** (no supuesta). Última actualización: 2026-06-11 (zonas producto-céntricas).
+> Realidad **verificada** (no supuesta). Última actualización: 2026-06-11 (rediseño "una orden").
 
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `fb6630a` — `feat(stow): product-driven zones, robust ID, relocation alerts`
-- **Deploy Vercel:** `wms-4fv7yl5a0…` · estado **● READY** · Production · alias activo
+- **Commit desplegado:** `671d460` — `fix(stow): adversarial-review fixes for the one-order redesign`
+- **Deploy Vercel:** `wms-bdh71s3b5…` · estado **● READY** · Production · alias activo
 - **Verificación (2026-06-11):**
   - `tsc --noEmit` / `eslint` / `next build` → limpios
-  - Playwright en PRODUCCIÓN: mantequilla `036800265257` → identificada → **Refrigerado
-    REF-03 automático**; forzar Ambiente → banner ámbar "Parece Refrigerado"; panel
-    "Reubicaciones sugeridas" lista 5 lotes mal ubicados. Móvil 390px verificado en local.
+  - Playwright en PRODUCCIÓN: idle minimalista; mantequilla `036800265257` → orden
+    **flood amarillo Nivel 1 + número 3 + "↓ Agáchate" + REFRIGERADO REF-03**; "Sin código"
+    → chooser de zona honesto. Móvil 390px y Panel (pared) verificados en local.
+
+## Rediseño "una orden" (Semáforo guiado) — completado este turno
+
+UI/UX rehecha tras crítica del owner: el operario ya no ve una pared de 18 ubicaciones
+ni pestañas de zona. Diseño elegido por panel de 3 agentes + juez; revisado por panel
+adversarial de 3 lentes (behavior/design/a11y) — 2 major corregidos.
+- **Color = NIVEL/altura** es la ÚNICA señal de color fuerte (mapea a la etiqueta física
+  del rack). **Zona = palabra + punto**, nunca un flood de color.
+- **Idle:** un solo campo de escaneo dominante; sin pared, sin pestañas.
+- **Orden (identificado):** flood del color del nivel + número GIGANTE de ubicación +
+  flecha direccional (↓ agáchate / → a la altura / ↑ alcanza) + zona como palabra. Rail
+  con producto (+miniatura si hay `image_url`), cantidad, confirmar.
+- **Sin identificar (sin código):** panel neutro honesto "¿A qué zona va?" + 3 botones;
+  confirmar bloqueado hasta elegir (no guarda en Ambiente a escondidas).
+- **Sin hueco:** flood rojo de marca.
+- **Cambiar ubicación:** sheet on-demand (reusa BinWall); la pared de 18 NO está en stow.
+- **Pared de 18 + ocupación → Panel del gerente** ("Estantería por zona").
+- Fix backend: `scan` reusa `product_id` (no duplica fichas pending al re-elegir zona);
+  `scan` devuelve `image_url`.
 
 ## Identificación de productos — REALIDAD (importante)
 
