@@ -12,10 +12,11 @@ import {
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fefoLevel } from "@/lib/fefo";
-import { inferZone } from "@/lib/rules/putaway";
+import { inferZone, resolveLevels, type BinForStow, type BinStripCell } from "@/lib/rules/putaway";
 import { levelMeta } from "@/lib/levels";
 import { StationsManager } from "@/components/dashboard/StationsManager";
-import { ArrowRight } from "lucide-react";
+import { BinWall } from "@/components/stow/BinWall";
+import { ArrowRight, LayoutGrid } from "lucide-react";
 import type { Zone } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +67,7 @@ export default async function DashboardPage() {
       .eq("review_status", "pending"),
     supabase
       .from("bins")
-      .select("id, station_id, zone, capacity")
+      .select("id, station_id, code, position, zone, level, capacity")
       .eq("warehouse_id", wh)
       .eq("active", true),
     supabase.from("bin_occupancy").select("bin_id, used").eq("warehouse_id", wh),
@@ -157,6 +158,39 @@ export default async function DashboardPage() {
   }
 
   const occupiedZones = ZONES.filter((z) => zoneStats.has(z));
+
+  // The full location wall, grouped by zone — a manager's situational overview
+  // (it used to clutter the operator's stow screen; now it lives here).
+  const forStow: BinForStow[] = (bins ?? []).map((b) => ({
+    id: b.id,
+    station_id: b.station_id,
+    station_name: "",
+    code: b.code,
+    position: b.position,
+    level: b.level ?? null,
+    zone: b.zone as Zone,
+    capacity: b.capacity,
+    used: usedMap.get(b.id) ?? 0,
+    active: true,
+  }));
+  const wallLevels = resolveLevels(forStow);
+  const wallByZone: Record<string, BinStripCell[]> = {};
+  for (const b of forStow) {
+    const pct = b.capacity ? Math.round((100 * b.used) / b.capacity) : 100;
+    const color: BinStripCell["color"] = pct >= 100 ? "full" : pct >= 70 ? "filling" : "free";
+    (wallByZone[b.zone] ??= []).push({
+      id: b.id,
+      code: b.code,
+      position: b.position,
+      level: wallLevels.get(b.id) ?? 1,
+      pct,
+      color,
+    });
+  }
+  for (const k of Object.keys(wallByZone)) {
+    wallByZone[k].sort((a, b) => a.position - b.position);
+  }
+  const wallZones = ZONES.filter((z) => wallByZone[z]?.length);
 
   // Relocation alerts: a batch whose product category implies a different
   // temperature zone than the bin it physically sits in (e.g. butter in
@@ -410,6 +444,36 @@ export default async function DashboardPage() {
             </ul>
           )}
         </section>
+
+        {/* full location wall by zone — manager situational overview */}
+        {wallZones.length > 0 && (
+          <section
+            className="deck-rise rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+            style={{ animationDelay: "165ms" }}
+          >
+            <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <LayoutGrid className="h-4 w-4 text-zinc-400" strokeWidth={1.8} />
+                Estantería por zona
+              </h2>
+              <span className={`text-[11px] text-zinc-400 ${NUM}`}>color = nivel · % = ocupación</span>
+            </header>
+            <div className="space-y-6 p-5">
+              {wallZones.map((z) => (
+                <div key={z}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${ZONE_DOT[z]}`} />
+                    <span className="text-sm font-semibold text-ink">{ZONE_LABEL[z]}</span>
+                    <span className={`text-xs text-zinc-400 ${NUM}`}>
+                      {wallByZone[z].length} ubic.
+                    </span>
+                  </div>
+                  <BinWall cells={wallByZone[z]} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* stations + bins management */}
         <div className="deck-rise" style={{ animationDelay: "180ms" }}>

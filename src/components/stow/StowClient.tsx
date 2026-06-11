@@ -9,8 +9,12 @@ import {
   Minus,
   Plus,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
   ChevronDown,
   AlertTriangle,
+  X,
+  ScanLine,
 } from "lucide-react";
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinWall } from "@/components/stow/BinWall";
@@ -32,6 +36,7 @@ interface Scanned {
   productId: string;
   label: string;
   category: string | null;
+  imageUrl: string | null;
   barcode: string | null;
   enrichmentStatus: EnrichmentStatus;
   suggestion: Suggestion;
@@ -76,8 +81,16 @@ const ZONE_DOT: Record<Zone, string> = {
   congelado: "bg-blue-600",
   hazmat: "bg-amber-500",
 };
+const ZONE_CHOICES: Zone[] = ["general", "refrigerado", "congelado"];
 
 const NUM = "font-[family-name:var(--font-num)] tabular-nums";
+
+// Redundant, non-text height cue (color-blind / low-literacy / gloves / 1m read).
+function heightCue(level: number): { Icon: typeof ArrowUp; verb: string } {
+  if (level <= 1) return { Icon: ArrowDown, verb: "Agáchate · suelo" };
+  if (level === 2) return { Icon: ArrowRight, verb: "A la altura · medio" };
+  return { Icon: ArrowUp, verb: "Alcanza · alto" };
+}
 
 function mmyyToDate(mmyy: string): string | null {
   const m = mmyy.replace(/\D/g, "");
@@ -89,13 +102,7 @@ function mmyyToDate(mmyy: string): string | null {
   return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 }
 
-export function StowClient({
-  zones,
-  zoneStrips,
-}: {
-  zones: Zone[];
-  zoneStrips: Record<string, BinStripCell[]>;
-}) {
+export function StowClient({ zones }: { zones: Zone[] }) {
   const [zone, setZone] = useState<Zone>(zones[0] ?? "general");
   const [barcode, setBarcode] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -106,6 +113,7 @@ export function StowClient({
   const [scanned, setScanned] = useState<Scanned | null>(null);
   const [selectedBinId, setSelectedBinId] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [showLocSheet, setShowLocSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ text: string; tone: "ok" | "warn" } | null>(null);
@@ -113,9 +121,9 @@ export function StowClient({
   const [showMeta, setShowMeta] = useState(false);
   const [enrichInfo, setEnrichInfo] = useState<EnrichInfo | null>(null);
 
-  // Zone is PRODUCT-driven until the operator explicitly picks a tab; from then
+  // Zone is PRODUCT-driven until the operator explicitly picks one; from then
   // on the selection is sticky (cold-cart workflow) and mismatches only advise.
-  const zoneTouchedRef = useRef(false);
+  const [zoneTouched, setZoneTouched] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const focusBarcode = useCallback(() => {
     requestAnimationFrame(() => barcodeRef.current?.focus());
@@ -125,11 +133,13 @@ export function StowClient({
   function resetForNext() {
     setScanned(null);
     setSelectedBinId(null);
+    setShowLocSheet(false);
     setBarcode("");
     setQuantity(1);
     setExpiry("");
     setShowMeta(false);
     setEnrichInfo(null);
+    setZoneTouched(false);
     focusBarcode();
   }
 
@@ -153,13 +163,14 @@ export function StowClient({
         productId: data.product_id,
         label: data.product?.name || code || "Producto sin nombre",
         category: data.product?.category ?? null,
+        imageUrl: data.product?.image_url ?? null,
         barcode: data.barcode ?? code,
         enrichmentStatus: data.enrichment_status,
         suggestion: data.suggestion,
       };
       setScanned(s);
       setSelectedBinId(s.suggestion.binId);
-      setZone(data.zone); // keep tabs + wall in sync with the effective zone
+      setZone(data.zone);
       setEnrichInfo(
         data.inferred_zone
           ? {
@@ -180,7 +191,6 @@ export function StowClient({
           .then((r) => (r.ok ? r.json() : null))
           .then((e) => {
             if (!e) return;
-            // live-update the product card if the operator still has it open
             setScanned((prev) =>
               prev && prev.productId === pid
                 ? {
@@ -212,22 +222,20 @@ export function StowClient({
   function onBarcodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (barcode.trim()) {
-        doScan(barcode.trim(), zoneTouchedRef.current ? zone : null);
-      }
+      if (barcode.trim()) doScan(barcode.trim(), zoneTouched ? zone : null);
     }
   }
 
-  // change zone: explicit operator choice (sticky); re-suggest if scanned
-  function changeZone(z: Zone) {
-    zoneTouchedRef.current = true;
+  // explicit operator zone choice (sticky); re-suggest if a product is scanned
+  function chooseZone(z: Zone) {
+    setZoneTouched(true);
     setZone(z);
     if (scanned) doScan(scanned.barcode, z);
   }
 
   async function handleConfirm() {
     if (!scanned || !selectedBinId) {
-      setError("No hay bin seleccionado");
+      setError("No hay ubicación seleccionada");
       return;
     }
     setError(null);
@@ -290,7 +298,7 @@ export function StowClient({
     );
   }
 
-  const strip = scanned ? scanned.suggestion.strip : (zoneStrips[zone] ?? []);
+  const strip = scanned?.suggestion.strip ?? [];
   const selectedCell = scanned ? strip.find((c) => c.id === selectedBinId) : undefined;
   const selectedMeta = selectedCell ? levelMeta(selectedCell.level) : null;
   // Zone advisory: identification (live or from the catalog) points elsewhere.
@@ -302,239 +310,319 @@ export function StowClient({
     enrichInfo.inferredZone !== scanned.suggestion.zone
       ? enrichInfo.inferredZone
       : null;
-  const avgPct = strip.length
-    ? Math.round(strip.reduce((s, c) => s + Math.min(100, c.pct), 0) / strip.length)
-    : 0;
-  const bump = (n: number) => setQuantity((q) => Math.max(1, q + n));
+  // The system honestly can't decide the zone: a hand-keyed item with no
+  // identity and no operator choice yet → ask, don't fake a destination.
+  const needsZoneChoice =
+    !!scanned &&
+    scanned.enrichmentStatus === "manual" &&
+    !scanned.category &&
+    !zoneTouched;
+  const noBin = !!scanned && !needsZoneChoice && !selectedCell;
+
   const field =
     "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-ink";
 
+  // shared zone chooser (used in the unidentified state and the no-hueco state)
+  const zoneChooser = (
+    <div className="grid w-full max-w-sm gap-2.5">
+      {ZONE_CHOICES.filter((z) => zones.includes(z)).map((z) => (
+        <button
+          key={z}
+          type="button"
+          onClick={() => chooseZone(z)}
+          className="flex h-[4.5rem] items-center gap-3 rounded-2xl border border-zinc-300 bg-white px-5 text-left transition hover:border-ink hover:bg-zinc-50 active:scale-[0.99]"
+        >
+          <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${ZONE_DOT[z]}`} />
+          <span className="text-xl font-bold text-ink">{ZONE_LABEL[z]}</span>
+          <ArrowRight className="ml-auto h-5 w-5 text-zinc-400" />
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="flex flex-1 flex-col">
-      {/* ── zone bar ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-line bg-white px-4 py-2.5 lg:px-6">
-        <span className={`hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 sm:block ${NUM}`}>
-          Zona
-        </span>
-        <div className="flex rounded-lg border border-line bg-zinc-50 p-0.5">
-          {zones.map((z) => (
-            <button
-              key={z}
-              type="button"
-              onClick={() => changeZone(z)}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition ${
-                z === zone
-                  ? "bg-white font-semibold text-ink shadow-sm ring-1 ring-black/5"
-                  : "font-medium text-zinc-500 hover:text-zinc-800"
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${ZONE_DOT[z]}`} />
-              {ZONE_LABEL[z]}
-            </button>
-          ))}
-        </div>
-        <div className={`ml-auto text-xs text-zinc-400 ${NUM}`}>
-          {strip.length} ubic. · {avgPct}% ocupado
-        </div>
-      </div>
+      {error && (
+        <p className="mx-4 mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200 lg:mx-6">
+          {error}
+        </p>
+      )}
 
-      {/* ── workspace: rail + wall ───────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col lg:flex-row">
-        {/* left rail */}
-        <div className="flex w-full flex-col border-b border-line bg-white lg:w-[400px] lg:border-b-0 lg:border-r xl:w-[440px]">
-          {error && (
-            <p className="mx-5 mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200">
-              {error}
-            </p>
+      {!scanned ? (
+        /* ── IDLE: one target, the scan field ───────────────────────────── */
+        <div className="flex flex-1 flex-col items-center">
+          <div className="w-full max-w-2xl px-5 pb-6 pt-10 text-center lg:pt-16">
+            <div className={`text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 ${NUM}`}>
+              Guardar
+            </div>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-ink lg:text-4xl">
+              Escanea un producto
+            </h1>
+            <input
+              ref={barcodeRef}
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              onKeyDown={onBarcodeKeyDown}
+              placeholder="Pistola o teclado…"
+              className={`mt-6 h-20 w-full rounded-2xl border-2 border-zinc-200 bg-zinc-50 px-5 text-center text-xl text-ink outline-none transition focus:border-brand focus:bg-white focus:shadow-[0_0_0_5px_rgba(225,25,49,0.1)] lg:h-24 lg:text-2xl ${NUM}`}
+            />
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="flex h-16 items-center justify-center gap-2 rounded-2xl bg-ink text-base font-semibold text-white transition hover:bg-zinc-800 active:scale-[0.98]"
+              >
+                <Camera className="h-5 w-5" /> Cámara
+              </button>
+              <button
+                type="button"
+                onClick={() => doScan(null, zoneTouched ? zone : null)}
+                className="flex h-16 items-center justify-center gap-2 rounded-2xl border border-zinc-300 bg-white text-base font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98]"
+              >
+                <PackagePlus className="h-5 w-5" /> Sin código
+              </button>
+            </div>
+            {showCamera && (
+              <div className="mt-4 text-left">
+                <CameraScanner
+                  onScan={(text) => {
+                    setShowCamera(false);
+                    setBarcode(text);
+                    doScan(text, zoneTouched ? zone : null);
+                  }}
+                  onClose={() => setShowCamera(false)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* session feed — low weight */}
+          <div className="w-full max-w-2xl flex-1 border-t border-line px-5 pt-4">
+            <div className="flex items-center justify-between pb-2">
+              <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
+                Guardados en esta sesión
+              </span>
+              <span className={`rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 ${NUM}`}>
+                {recent.length}
+              </span>
+            </div>
+            {recent.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                <Package className="h-6 w-6 text-zinc-300" strokeWidth={1.5} />
+                <p className="text-xs text-zinc-400">Lo que guardes aparecerá aquí.</p>
+              </div>
+            ) : (
+              <ul className="space-y-1 pb-6">
+                {recent.map((r) => {
+                  const m = levelMeta(r.level);
+                  return (
+                    <li
+                      key={r.id}
+                      className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-zinc-50"
+                    >
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-zinc-700">{r.label}</span>
+                      <span className={`shrink-0 text-xs text-zinc-400 ${NUM}`}>×{r.quantity}</span>
+                      <span
+                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold ${NUM}`}
+                        style={{ backgroundColor: m.color, color: m.text }}
+                      >
+                        {r.position ?? r.binCode}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ── ORDER: one clear instruction ───────────────────────────────── */
+        <div className="flex flex-1 flex-col">
+          {/* docked context bar */}
+          <div className="flex items-center gap-2 border-b border-line bg-white px-4 py-2 lg:px-6">
+            <ScanLine className="h-4 w-4 text-zinc-400" />
+            <span className={`text-sm text-zinc-500 ${NUM}`}>{scanned.barcode ?? "Sin código"}</span>
+            <button
+              type="button"
+              onClick={resetForNext}
+              className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800"
+            >
+              <X className="h-3.5 w-3.5" /> Escanear otro
+            </button>
+          </div>
+
+          {/* zone-mismatch advisory (system note above the order) */}
+          {adviceZone && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 lg:px-6">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+              <span className="text-sm font-semibold text-amber-900">
+                Parece {ZONE_LABEL[adviceZone]}.
+                {enrichInfo?.category && (
+                  <span className="font-normal text-amber-800/80"> {enrichInfo.category}</span>
+                )}
+              </span>
+              {zones.includes(adviceZone) && (
+                <button
+                  type="button"
+                  onClick={() => chooseZone(adviceZone)}
+                  className="ml-auto flex h-9 items-center gap-1.5 rounded-lg bg-amber-600 px-3 text-sm font-bold text-white transition hover:bg-amber-700 active:scale-[0.98]"
+                >
+                  Mover a {ZONE_LABEL[adviceZone]} <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           )}
 
-          {!scanned ? (
-            <>
-              {/* scan block */}
-              <div className="p-5 lg:p-6">
-                <div className={`mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
-                  Escanear
-                </div>
-                <h1 className="text-2xl font-bold tracking-tight text-ink">
-                  Escanea un producto
-                </h1>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Irá a un bin de <strong className="font-semibold text-zinc-700">{ZONE_LABEL[zone]}</strong>.
-                  Cámbialo arriba si es frío o congelado.
-                </p>
-
-                <input
-                  ref={barcodeRef}
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  onKeyDown={onBarcodeKeyDown}
-                  placeholder="Pistola o teclado…"
-                  className={`mt-4 h-14 w-full rounded-xl border-2 border-zinc-200 bg-zinc-50 px-4 text-center text-lg text-ink outline-none transition focus:border-brand focus:bg-white focus:shadow-[0_0_0_4px_rgba(225,25,49,0.08)] ${NUM}`}
-                />
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowCamera(true)}
-                    className="flex h-12 items-center justify-center gap-2 rounded-xl bg-ink text-sm font-semibold text-white transition hover:bg-zinc-800 active:scale-[0.98]"
-                  >
-                    <Camera className="h-4.5 w-4.5" /> Cámara
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => doScan(null, zoneTouchedRef.current ? zone : null)}
-                    className="flex h-12 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98]"
-                  >
-                    <PackagePlus className="h-4.5 w-4.5" /> Sin código
-                  </button>
-                </div>
-                {showCamera && (
-                  <div className="mt-3">
-                    <CameraScanner
-                      onScan={(text) => {
-                        setShowCamera(false);
-                        setBarcode(text);
-                        doScan(text, zoneTouchedRef.current ? zone : null);
-                      }}
-                      onClose={() => setShowCamera(false)}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* session feed */}
-              <div className="flex min-h-32 flex-1 flex-col border-t border-line">
-                <div className="flex items-center justify-between px-5 pb-2 pt-4">
-                  <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
-                    Sesión
-                  </span>
-                  <span className={`rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 ${NUM}`}>
-                    {recent.length}
-                  </span>
-                </div>
-                {recent.length === 0 ? (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 pb-6 text-center">
-                    <Package className="h-6 w-6 text-zinc-300" strokeWidth={1.5} />
-                    <p className="text-xs text-zinc-400">
-                      Lo que guardes en esta sesión aparecerá aquí.
+          <div className="flex flex-1 flex-col lg:flex-row">
+            {/* FLOOD — the destination */}
+            <div className="flex min-h-[44vh] flex-col lg:min-h-0 lg:w-[58%] xl:w-[60%]">
+              {needsZoneChoice ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-5 bg-zinc-50 p-6 text-center">
+                  <div>
+                    <div className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
+                      Sin identificar
+                    </div>
+                    <div className="mt-1 text-2xl font-bold text-ink">¿A qué zona va?</div>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Elige la zona y guárdalo — lo identificamos después.
                     </p>
                   </div>
-                ) : (
-                  <ul className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-                    {recent.map((r) => {
-                      const m = levelMeta(r.level);
-                      return (
-                        <li
-                          key={r.id}
-                          className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-zinc-50"
-                        >
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                            <Check className="h-3 w-3" strokeWidth={3} />
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-zinc-700">{r.label}</span>
-                          <span className={`shrink-0 text-xs text-zinc-400 ${NUM}`}>×{r.quantity}</span>
-                          <span
-                            className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold ${NUM}`}
-                            style={{ backgroundColor: m.color, color: m.text }}
-                          >
-                            {r.position ?? r.binCode}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-1 flex-col gap-4 p-5 lg:p-6">
-              {/* product */}
-              <div className="min-w-0">
-                <div className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
-                  Producto
-                  {scanned.enrichmentStatus === "queued" && (
-                    <span className="shimmer ml-2 normal-case tracking-normal">identificando…</span>
-                  )}
+                  {zoneChooser}
                 </div>
-                <div className="mt-0.5 line-clamp-2 text-lg font-bold leading-snug text-ink">
-                  {scanned.label}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  {scanned.barcode && (
-                    <span className={`text-xs text-zinc-400 ${NUM}`}>{scanned.barcode}</span>
-                  )}
-                  {scanned.category && (
-                    <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500">
-                      {scanned.category}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* zone advisory — identification says this belongs elsewhere */}
-              {adviceZone && (
-                <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 px-3.5 py-3 ring-1 ring-amber-300">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  <div className="min-w-0 flex-1 text-sm text-amber-900">
-                    <div>
-                      <span className="font-bold">Parece {ZONE_LABEL[adviceZone]}.</span>
-                      {enrichInfo?.category && (
-                        <span className="text-amber-800/80"> {enrichInfo.category}</span>
-                      )}
+              ) : noBin ? (
+                <div
+                  className="flex flex-1 flex-col items-center justify-center gap-5 p-6 text-center text-white"
+                  style={{ backgroundColor: "#e11931" }}
+                >
+                  <div>
+                    <div className={`text-[11px] font-bold uppercase tracking-[0.18em] opacity-90 ${NUM}`}>
+                      Sin hueco
                     </div>
-                    {zones.includes(adviceZone) && (
-                      <button
-                        type="button"
-                        onClick={() => changeZone(adviceZone)}
-                        className="mt-2 flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 text-sm font-bold text-white transition hover:bg-amber-700 active:scale-[0.98]"
-                      >
-                        Mover a {ZONE_LABEL[adviceZone]} <ArrowRight className="h-4 w-4" />
-                      </button>
+                    <div className="mt-1 text-3xl font-extrabold">
+                      No hay sitio en {ZONE_LABEL[scanned.suggestion.zone]}
+                    </div>
+                    <p className="mt-1 text-sm opacity-90">{scanned.suggestion.reason}</p>
+                  </div>
+                  <div className="text-sm font-semibold opacity-90">Elige otra zona:</div>
+                  {zoneChooser}
+                </div>
+              ) : selectedCell && selectedMeta ? (
+                <div
+                  className="deck-rise relative flex flex-1 flex-col justify-center overflow-hidden p-6 lg:p-10"
+                  style={{ backgroundColor: selectedMeta.color, color: selectedMeta.text }}
+                >
+                  {/* zone strap — the ONLY zone encoding: word + dot, inverse pill */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-bold uppercase tracking-[0.12em] ${NUM}`}
+                      style={{ backgroundColor: selectedMeta.text, color: selectedMeta.color }}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${ZONE_DOT[scanned.suggestion.zone]}`} />
+                      {ZONE_LABEL[scanned.suggestion.zone]}
+                    </span>
+                    <span className={`text-[13px] font-semibold uppercase tracking-[0.12em] opacity-80 ${NUM}`}>
+                      Nivel {selectedCell.level} · {selectedMeta.name}
+                    </span>
+                  </div>
+
+                  {/* hero number */}
+                  <div className={`mt-4 text-[13px] font-bold uppercase tracking-[0.2em] opacity-80 ${NUM}`}>
+                    Vé a la ubicación
+                  </div>
+                  <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+                    <span
+                      className={`font-bold leading-[0.85] ${NUM}`}
+                      style={{ fontSize: "clamp(7rem, 22vw, 17rem)" }}
+                    >
+                      {selectedCell.position}
+                    </span>
+                    <div className="pb-3">
+                      <div className={`text-2xl font-bold lg:text-3xl ${NUM}`}>{selectedCell.code}</div>
+                      {(() => {
+                        const cue = heightCue(selectedCell.level);
+                        return (
+                          <span
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold"
+                            style={{ backgroundColor: `${selectedMeta.text}22` }}
+                          >
+                            <cue.Icon className="h-4 w-4" strokeWidth={2.5} /> {cue.verb}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {scanned.suggestion.stationName && (
+                    <div className="mt-4 text-sm font-medium opacity-70">
+                      {scanned.suggestion.stationName}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowLocSheet(true)}
+                    className="mt-5 self-start rounded-lg px-3 py-1.5 text-sm font-semibold underline-offset-2 hover:underline"
+                    style={{ backgroundColor: `${selectedMeta.text}1a` }}
+                  >
+                    No es esta ubicación →
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-1 items-center justify-center bg-zinc-50 p-6 text-zinc-400">
+                  Cargando…
+                </div>
+              )}
+            </div>
+
+            {/* RAIL — what the hand must touch */}
+            <div className="flex flex-1 flex-col border-t border-line bg-white p-5 lg:border-l lg:border-t-0 lg:p-6">
+              {/* identity */}
+              <div className="flex items-start gap-3">
+                {scanned.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={scanned.imageUrl}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded-lg border border-line bg-zinc-50 object-contain"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
+                    Producto
+                    {scanned.enrichmentStatus === "queued" && (
+                      <span className="shimmer ml-2 normal-case tracking-normal">identificando…</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 line-clamp-2 text-lg font-bold leading-snug text-ink">
+                    {scanned.label}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {scanned.barcode && (
+                      <span className={`text-xs text-zinc-400 ${NUM}`}>{scanned.barcode}</span>
+                    )}
+                    {scanned.category && (
+                      <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500">
+                        {scanned.category}
+                      </span>
                     )}
                   </div>
                 </div>
-              )}
-
-              {/* target bin — the answer */}
-              {selectedCell && selectedMeta ? (
-                <div
-                  className="rounded-2xl px-5 py-4 shadow-md ring-1 ring-black/10"
-                  style={{ backgroundColor: selectedMeta.color, color: selectedMeta.text }}
-                >
-                  <div className={`text-[11px] font-bold uppercase tracking-[0.18em] opacity-80 ${NUM}`}>
-                    Guárdalo en
-                  </div>
-                  <div className="flex items-end justify-between gap-3">
-                    <span className={`text-[64px] font-bold leading-none ${NUM}`}>
-                      {selectedCell.position}
-                    </span>
-                    <div className="pb-1.5 text-right">
-                      <div className={`text-sm font-bold ${NUM}`}>{selectedCell.code}</div>
-                      <div className="text-xs font-semibold opacity-85">
-                        Nivel {selectedCell.level} · {selectedMeta.name}
-                      </div>
-                      {scanned.suggestion.stationName && (
-                        <div className="text-[11px] opacity-70">{scanned.suggestion.stationName}</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl bg-red-50 px-5 py-4 text-center text-red-700 ring-1 ring-red-200">
-                  <div className="text-sm font-semibold">{scanned.suggestion.reason}</div>
-                </div>
-              )}
+              </div>
 
               {/* quantity */}
-              <div>
+              <div className="mt-5">
                 <div className={`mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
                   Cantidad
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => bump(-1)}
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     aria-label="Restar 1"
-                    className="flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-300 text-zinc-700 transition hover:bg-zinc-50 active:scale-95"
+                    className="flex h-14 w-14 items-center justify-center rounded-xl border border-zinc-300 text-zinc-700 transition hover:bg-zinc-50 active:scale-95"
                   >
                     <Minus className="h-5 w-5" />
                   </button>
@@ -544,13 +632,13 @@ export function StowClient({
                     inputMode="numeric"
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-                    className={`h-12 flex-1 rounded-xl border border-zinc-300 text-center text-2xl font-bold text-ink outline-none focus:border-ink ${NUM}`}
+                    className={`h-14 flex-1 rounded-xl border border-zinc-300 text-center text-3xl font-bold text-ink outline-none focus:border-ink ${NUM}`}
                   />
                   <button
                     type="button"
-                    onClick={() => bump(1)}
+                    onClick={() => setQuantity((q) => q + 1)}
                     aria-label="Sumar 1"
-                    className="flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-300 text-zinc-700 transition hover:bg-zinc-50 active:scale-95"
+                    className="flex h-14 w-14 items-center justify-center rounded-xl border border-zinc-300 text-zinc-700 transition hover:bg-zinc-50 active:scale-95"
                   >
                     <Plus className="h-5 w-5" />
                   </button>
@@ -560,8 +648,8 @@ export function StowClient({
                     <button
                       key={n}
                       type="button"
-                      onClick={() => bump(n)}
-                      className={`flex-1 rounded-lg bg-zinc-100 px-2 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-200 ${NUM}`}
+                      onClick={() => setQuantity((q) => q + n)}
+                      className={`flex-1 rounded-lg bg-zinc-100 px-2 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-200 ${NUM}`}
                     >
                       +{n}
                     </button>
@@ -569,7 +657,7 @@ export function StowClient({
                   <button
                     type="button"
                     onClick={() => setQuantity(1)}
-                    className="flex-1 rounded-lg border border-zinc-200 px-2 py-1.5 text-xs font-semibold text-zinc-400 transition hover:bg-zinc-50"
+                    className="flex-1 rounded-lg border border-zinc-200 px-2 py-2 text-sm font-semibold text-zinc-400 transition hover:bg-zinc-50"
                   >
                     Reset
                   </button>
@@ -577,15 +665,13 @@ export function StowClient({
               </div>
 
               {/* meta accordion */}
-              <div>
+              <div className="mt-4">
                 <button
                   type="button"
                   onClick={() => setShowMeta((v) => !v)}
                   className="flex items-center gap-1 text-xs font-semibold text-zinc-500 transition hover:text-zinc-800"
                 >
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 transition-transform ${showMeta ? "rotate-180" : ""}`}
-                  />
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMeta ? "rotate-180" : ""}`} />
                   Condición / origen / caducidad
                 </button>
                 {showMeta && (
@@ -617,9 +703,7 @@ export function StowClient({
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-zinc-500">
-                        Caducidad (MMYY)
-                      </label>
+                      <label className="block text-[11px] font-medium text-zinc-500">Caducidad (MMYY)</label>
                       <input
                         value={expiry}
                         onChange={(e) => setExpiry(e.target.value)}
@@ -634,50 +718,77 @@ export function StowClient({
               </div>
 
               {/* confirm */}
-              <div className="mt-auto space-y-2 pt-2">
+              <div className="sticky bottom-0 mt-auto space-y-2 bg-white pt-4">
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={busy || !selectedBinId}
-                  className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-ink text-base font-bold text-white transition hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-40"
+                  disabled={busy || !selectedBinId || needsZoneChoice}
+                  className="flex h-16 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-lg font-bold text-white transition hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-40"
                 >
-                  {busy ? "Guardando…" : "Confirmar y guardar"}
-                  {!busy && <ArrowRight className="h-5 w-5" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForNext}
-                  className="w-full text-center text-xs font-medium text-zinc-400 transition hover:text-zinc-600"
-                >
-                  Cancelar y escanear otro
+                  {busy
+                    ? "Guardando…"
+                    : needsZoneChoice
+                      ? "Elige una zona"
+                      : "Confirmar y guardar"}
+                  {!busy && !needsZoneChoice && <ArrowRight className="h-5 w-5" />}
                 </button>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* the wall */}
-        <div className="flex flex-1 flex-col p-4 lg:p-6">
-          <div className="mb-3 flex items-center justify-between">
-            <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
-              Estantería · {ZONE_LABEL[scanned?.suggestion.zone ?? zone]}
-            </span>
-            {scanned && (
-              <span className="text-xs font-medium text-zinc-400">
-                Toca otra ubicación para cambiar
-              </span>
-            )}
           </div>
-          <BinWall
-            cells={strip}
-            selectedBinId={scanned ? selectedBinId : undefined}
-            onSelect={scanned ? setSelectedBinId : undefined}
-            fill
-          />
         </div>
-      </div>
+      )}
 
-      {/* save toast (ok = saved; warn = saved but zone mismatch) */}
+      {/* change-location sheet (on demand; the 18-wall never sits on this screen) */}
+      {showLocSheet && scanned && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowLocSheet(false)} />
+          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[34rem] lg:max-h-none lg:rounded-none lg:rounded-l-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-bold text-ink">
+                Otra ubicación de {ZONE_LABEL[scanned.suggestion.zone]}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowLocSheet(false)}
+                aria-label="Cerrar"
+                className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <BinWall
+              cells={strip}
+              selectedBinId={selectedBinId}
+              onSelect={(id) => {
+                setSelectedBinId(id);
+                setShowLocSheet(false);
+              }}
+            />
+            <div className="mt-5 border-t border-line pt-4">
+              <div className={`mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
+                ¿Va a otra zona?
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {ZONE_CHOICES.filter((z) => zones.includes(z) && z !== scanned.suggestion.zone).map((z) => (
+                  <button
+                    key={z}
+                    type="button"
+                    onClick={() => {
+                      chooseZone(z);
+                      setShowLocSheet(false);
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                  >
+                    <span className={`h-2 w-2 rounded-full ${ZONE_DOT[z]}`} /> {ZONE_LABEL[z]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* save toast */}
       {flash && (
         <div
           className={`toast-pop fixed right-4 top-16 z-50 flex max-w-md items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-2xl ${

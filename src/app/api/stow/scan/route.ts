@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, category, weight, enrichment_status")
+    .select("id, name, category, weight, image_url, enrichment_status")
     .eq("id", productId)
     .single();
 
@@ -145,7 +145,11 @@ export async function POST(request: Request) {
     product_id: productId,
     barcode,
     enrichment_status: (product?.enrichment_status ?? "manual") as EnrichmentStatus,
-    product: { name: product?.name ?? null, category: product?.category ?? null },
+    product: {
+      name: product?.name ?? null,
+      category: product?.category ?? null,
+      image_url: product?.image_url ?? null,
+    },
     zone,
     // What the product's category says (≠ zone when the operator overrides):
     // the client shows a "this looks like Refrigerado" advisory on mismatch.
