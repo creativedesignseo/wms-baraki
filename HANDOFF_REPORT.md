@@ -5,8 +5,12 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `4f8276f` — alta de empleados por el admin (sin registro abierto)
+- **Commit desplegado:** `bc62964` — retirar mercancía (salida de stock)
 - **Deploy Vercel:** estado **● READY** · Production · alias activo
+- **Retirar mercancía** (`/api/batches/withdraw`, manager/owner): salida de stock
+  parcial (reduce cantidad) o total (status `retirado`); motivo en notes. Botón
+  "Retirar" por lote en Inventario; al intentar borrar un producto con stock (409) el
+  producto se auto-expande para retirar ahí mismo. Verificado en vivo.
 - **Alta de usuarios:** página **/team** (manager/owner) — el admin da de alta empleados
   (correo, nombre, rol, contraseña). **Nadie se auto-registra** en un almacén (sería un
   agujero multi-tenant). `/api/users/create`: warehouse = el del creador (no del input);
@@ -108,9 +112,23 @@ Next.js 16 (App Router, `proxy.ts`) · React 19 · TS · Tailwind v4 ·
 Supabase (`hiofgzfhmhcvajsbiolz`) · OpenRouter `google/gemini-2.5-flash-lite` ·
 deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
 
-## Pendiente (priorizado)
+## Pendiente (priorizado) — sistema de PRECIOS (decidido con el owner 2026-06-11)
 
-1. **Foto del producto por el operario** (capturar con cámara; subir al bucket
+> Trampa importante: un LLM NO busca precios reales solo (los inventa). El precio debe
+> venir de fuente real (API) o de IA-con-búsqueda que CITE la fuente. NUNCA inventado
+> (misma regla que el peso). Hoy el prompt de enrich NO prohíbe inventar precio → revisar.
+
+1. **Precio de referencia honesto:** precio de fuente real (UPCitemdb `lowest_recorded_price`)
+   + mostrar la fuente; quitar del prompt la generación de precio inventado.
+2. **IA con búsqueda de precios** (enfoque elegido: fuente real + IA con búsqueda que cita
+   fuente) para productos sin proveedor.
+3. **Configurar fuentes/marketplaces** (super admin elige Amazon/Walmart/… en Ajustes).
+4. **Precio de venta:** el operario/admin ve la referencia y fija el precio en USD.
+5. **Divisa automática BCV:** tasa oficial del día (cron); bolívares = USD × tasa al vuelo.
+
+## Pendiente — operario
+
+6. **Foto del producto por el operario** (capturar con cámara; subir al bucket
    `product-images` que YA existe). La infraestructura de Storage está lista (helper
    `uploadProductImage` ya escrito); falta el modo "tomar foto" de la cámara + botón.
 2. **OCR de fecha de caducidad** con la cámara (sin IA pesada, por velocidad).
