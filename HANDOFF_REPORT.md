@@ -5,8 +5,15 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `13274d9` — `feat(stow): operator can correct product identity at stow time`
-- **Deploy Vercel:** `wms-2mc15xek2…` · estado **● READY** · Production · alias activo
+- **Commit desplegado:** `2cf7448` (+ fix charset) — imágenes https + peso/volumen
+- **Deploy Vercel:** estado **● READY** · Production · alias activo
+- **Imágenes en vivo:** las fotos del proveedor se espejan a Supabase Storage (bucket
+  público `product-images`, https) → ya se ven (resuelto el bloqueo http/mixed-content).
+  Backfill ejecutado 2026-06-11: 10/11 productos migrados. Migración R2 (Cloudflare)
+  pendiente para más adelante (preferencia del owner).
+- **Peso/volumen:** columna `products.volume` (migración 0008, ejecutada); editor del
+  operario con campos Peso (kg) / Volumen (L); se muestran como chips. Peso ya sesga a
+  baldas bajas; volumen guardado para futura selección por tamaño de ubicación.
 - **Editor del operario (nuevo):** botón "Editar" en Guardar → corrige nombre /
   categoría / código sin esperar al gerente. Escribir una categoría re-infiere la zona
   (ej. "Lácteos" en un Sin-código → salta solo a Refrigerado). Endpoint
