@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   Settings,
+  Users,
   LogOut,
   Warehouse,
   type LucideIcon,
@@ -42,6 +43,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/approval", label: "Aprobación", icon: ClipboardCheck, roles: ["manager", "owner"] },
       { href: "/dashboard", label: "Panel", icon: LayoutDashboard, roles: ["manager", "owner"] },
+      { href: "/team", label: "Equipo", icon: Users, roles: ["manager", "owner"] },
       { href: "/settings", label: "Ajustes", icon: Settings, roles: ["owner"] },
     ],
   },
@@ -52,6 +54,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/inventory": "Inventario",
   "/approval": "Cola de aprobación",
   "/dashboard": "Panel de control",
+  "/team": "Equipo",
   "/settings": "Ajustes",
 };
 
