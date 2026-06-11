@@ -5,8 +5,16 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `2cf7448` (+ fix charset) — imágenes https + peso/volumen
+- **Commit desplegado:** `cab5103` — gestión de ubicaciones + etiquetas QR + scan-confirm
 - **Deploy Vercel:** estado **● READY** · Production · alias activo
+- **Gestión de ubicaciones (manager/owner):** editar estación (renombrar, capacidad en
+  bloque) y **borrar** (seguro: bloquea si hay stock; desactiva si hay historial). El
+  operario NUNCA ve el Panel (separación de roles ya existente).
+- **Etiquetas QR imprimibles:** `/dashboard/labels` — una pegatina por hueco (número +
+  color de nivel + QR del código + zona), estilo LaceUp. Botón "Etiquetas QR" en el Panel.
+- **Confirmar hueco por QR:** en la orden de Guardar, botón opcional "Verificar hueco (QR)"
+  → escanea el QR físico del hueco y comprueba contra la ubicación sugerida (verde si
+  coincide, ámbar si es el equivocado). No bloquea el flujo rápido.
 - **Imágenes en vivo:** las fotos del proveedor se espejan a Supabase Storage (bucket
   público `product-images`, https) → ya se ven (resuelto el bloqueo http/mixed-content).
   Backfill ejecutado 2026-06-11: 10/11 productos migrados. Migración R2 (Cloudflare)
@@ -84,14 +92,15 @@ deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
 
 ## Pendiente (priorizado)
 
-1. **Foto del producto por el operario** (capturar con cámara cuando no hay imagen del
-   proveedor; guardar en Supabase Storage privado por almacén). El operario lo pidió
-   para liquidaciones random sin código/sin imagen. La edición de identidad YA está;
-   falta la captura+subida de foto y el modo "tomar foto" de la cámara.
-2. Limpiar productos de prueba sin identificar (SQL opcional entregado en chat).
-3. Sustituir placeholder `[PRODUCT_NAME]` por el nombre comercial final.
-4. Página legacy `/scan` sigue existiendo (sin enlace en nav) — decidir si se elimina.
-5. (Opcional) OCR de fecha de caducidad con la cámara; proveedor UPC de pago.
+1. **Foto del producto por el operario** (capturar con cámara; subir al bucket
+   `product-images` que YA existe). La infraestructura de Storage está lista (helper
+   `uploadProductImage` ya escrito); falta el modo "tomar foto" de la cámara + botón.
+2. **OCR de fecha de caducidad** con la cámara (sin IA pesada, por velocidad).
+3. Limpiar estaciones/productos de prueba (ahora se pueden borrar desde el Panel).
+4. Sustituir placeholder `[PRODUCT_NAME]` por el nombre comercial final.
+5. Página legacy `/scan` sigue existiendo (sin enlace en nav) — decidir si se elimina.
+6. (Opcional) Migrar imágenes a Cloudflare R2 (cambiar solo `src/lib/storage.ts`).
+   Editar capacidad/nivel por hueco individual (hoy es en bloque por estación).
 
 ## Hecho este turno (zonas producto-céntricas)
 
