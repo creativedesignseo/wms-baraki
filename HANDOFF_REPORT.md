@@ -5,8 +5,13 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `ef1861a` — borrar productos (manager/owner)
+- **Commit desplegado:** `4f8276f` — alta de empleados por el admin (sin registro abierto)
 - **Deploy Vercel:** estado **● READY** · Production · alias activo
+- **Alta de usuarios:** página **/team** (manager/owner) — el admin da de alta empleados
+  (correo, nombre, rol, contraseña). **Nadie se auto-registra** en un almacén (sería un
+  agujero multi-tenant). `/api/users/create`: warehouse = el del creador (no del input);
+  un encargado solo crea operarios; un dueño cualquier rol. Verificado en vivo: operario
+  creado → entra → solo ve Guardar + Inventario.
 
 ## Modelo de roles (confirmado por el owner 2026-06-11)
 
