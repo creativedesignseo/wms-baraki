@@ -5,8 +5,21 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `cab5103` — gestión de ubicaciones + etiquetas QR + scan-confirm
+- **Commit desplegado:** `ef1861a` — borrar productos (manager/owner)
 - **Deploy Vercel:** estado **● READY** · Production · alias activo
+
+## Modelo de roles (confirmado por el owner 2026-06-11)
+
+Un solo sistema, 3 roles fijos (no permisos sueltos):
+- **operario** (`operator`): escanear, guardar, **corregir identidad** del producto
+  (nombre/categoría/código/peso/volumen), verificar hueco por QR. NO precios, NO Panel,
+  NO crear/borrar nada.
+- **administrador** (`manager`): + crear/editar/borrar ubicaciones, **precios**, aprobar,
+  etiquetas QR, **borrar productos**.
+- **super admin** (`owner`): + ajustes del almacén.
+- **Borrar productos** (`/api/products/delete`, manager/owner): bloquea si hay stock
+  activo (409); si no, borra lotes históricos + producto + imagen de Storage. Botón
+  papelera en Inventario solo visible a manager/owner. Verificado en vivo.
 - **Gestión de ubicaciones (manager/owner):** editar estación (renombrar, capacidad en
   bloque) y **borrar** (seguro: bloquea si hay stock; desactiva si hay historial). El
   operario NUNCA ve el Panel (separación de roles ya existente).
