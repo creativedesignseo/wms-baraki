@@ -334,7 +334,7 @@ export function StowClient({
           ))}
         </div>
         <div className={`ml-auto text-xs text-zinc-400 ${NUM}`}>
-          {strip.length} bins · {avgPct}% ocupado
+          {strip.length} ubic. · {avgPct}% ocupado
         </div>
       </div>
 
