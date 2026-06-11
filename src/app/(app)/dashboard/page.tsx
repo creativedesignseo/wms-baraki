@@ -16,7 +16,8 @@ import { inferZone, resolveLevels, type BinForStow, type BinStripCell } from "@/
 import { levelMeta } from "@/lib/levels";
 import { StationsManager } from "@/components/dashboard/StationsManager";
 import { BinWall } from "@/components/stow/BinWall";
-import { ArrowRight, LayoutGrid } from "lucide-react";
+import { ArrowRight, LayoutGrid, QrCode } from "lucide-react";
+import Link from "next/link";
 import type { Zone } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -456,7 +457,12 @@ export default async function DashboardPage() {
                 <LayoutGrid className="h-4 w-4 text-zinc-400" strokeWidth={1.8} />
                 Estantería por zona
               </h2>
-              <span className={`text-[11px] text-zinc-400 ${NUM}`}>color = nivel · % = ocupación</span>
+              <Link
+                href="/dashboard/labels"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
+              >
+                <QrCode className="h-3.5 w-3.5" /> Etiquetas QR
+              </Link>
             </header>
             <div className="space-y-6 p-5">
               {wallZones.map((z) => (

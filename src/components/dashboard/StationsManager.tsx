@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Grid3x3, Plus, Warehouse } from "lucide-react";
+import { Grid3x3, Plus, Warehouse, Pencil, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { levelMeta } from "@/lib/levels";
 import type { Zone } from "@/lib/types";
@@ -62,6 +62,89 @@ export function StationsManager({
   const [levels, setLevels] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // edit / delete a station
+  const [editing, setEditing] = useState<StationRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCap, setEditCap] = useState("");
+  const [savingStation, setSavingStation] = useState(false);
+  const [editErr, setEditErr] = useState<string | null>(null);
+
+  function openStationEdit(s: StationRow) {
+    setEditing(s);
+    setEditName(s.name);
+    setEditCap(s.binCount ? String(Math.round(s.capacity / s.binCount)) : "30");
+    setEditErr(null);
+  }
+
+  async function saveStation() {
+    if (!editing) return;
+    if (!editName.trim()) {
+      setEditErr("Pon un nombre");
+      return;
+    }
+    setSavingStation(true);
+    setEditErr(null);
+    const supabase = createClient();
+    const { error: stErr } = await supabase
+      .from("stations")
+      .update({ name: editName.trim() })
+      .eq("id", editing.id)
+      .eq("warehouse_id", warehouseId);
+    // bulk capacity for all bins of this station (optional)
+    const cap = parseInt(editCap, 10);
+    let binErr = null;
+    if (Number.isFinite(cap) && cap >= 1) {
+      const { error } = await supabase
+        .from("bins")
+        .update({ capacity: cap })
+        .eq("station_id", editing.id)
+        .eq("warehouse_id", warehouseId);
+      binErr = error;
+    }
+    setSavingStation(false);
+    if (stErr || binErr) {
+      setEditErr(stErr?.message ?? binErr?.message ?? "No se pudo guardar");
+      return;
+    }
+    setEditing(null);
+    router.refresh();
+  }
+
+  // Delete is safe: blocked if the station holds stock; falls back to
+  // deactivating when historical batches still reference its bins (FK).
+  async function deleteStation() {
+    if (!editing) return;
+    if (editing.used > 0) {
+      setEditErr("Esta estación tiene mercancía. Vacíala antes de borrarla.");
+      return;
+    }
+    setSavingStation(true);
+    setEditErr(null);
+    const supabase = createClient();
+    const { error: binErr } = await supabase
+      .from("bins")
+      .delete()
+      .eq("station_id", editing.id)
+      .eq("warehouse_id", warehouseId);
+    if (binErr) {
+      // historical batches reference these bins → soft-delete instead
+      await supabase.from("bins").update({ active: false }).eq("station_id", editing.id);
+      await supabase.from("stations").update({ active: false }).eq("id", editing.id);
+      setSavingStation(false);
+      setEditing(null);
+      router.refresh();
+      return;
+    }
+    await supabase
+      .from("stations")
+      .delete()
+      .eq("id", editing.id)
+      .eq("warehouse_id", warehouseId);
+    setSavingStation(false);
+    setEditing(null);
+    router.refresh();
+  }
 
   // contiguous level bands: ceil(N/levels) positions per level, level 1 first
   const lv = Math.min(5, Math.max(1, levels));
@@ -215,6 +298,14 @@ export function StationsManager({
                   >
                     <Plus className="h-3.5 w-3.5" strokeWidth={2} />6 ubic.
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => openStationEdit(s)}
+                    aria-label="Editar estación"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-600 transition hover:bg-zinc-50"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </li>
             );
@@ -329,6 +420,72 @@ export function StationsManager({
           </div>
         </form>
       </div>
+
+      {/* edit / delete station sheet */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setEditing(null)} />
+          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-5 shadow-2xl lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[28rem] lg:rounded-none lg:rounded-l-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-bold text-ink">Editar estación</h3>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                aria-label="Cerrar"
+                className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3.5">
+              <label className="flex flex-col gap-1">
+                <span className={LABEL}>Nombre</span>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className={`h-11 ${FIELD}`}
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={LABEL}>Capacidad por ubicación (todas)</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={editCap}
+                  onChange={(e) => setEditCap(e.target.value)}
+                  className={`h-11 ${FIELD} ${NUM}`}
+                />
+                <span className="text-xs text-zinc-400">
+                  Aplica a las {editing.binCount} ubicaciones de esta estación.
+                </span>
+              </label>
+              {editErr && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200">
+                  {editErr}
+                </p>
+              )}
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={deleteStation}
+                disabled={savingStation}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-red-200 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" /> Borrar
+              </button>
+              <button
+                type="button"
+                onClick={saveStation}
+                disabled={savingStation}
+                className="h-11 flex-1 rounded-xl bg-ink text-sm font-bold text-white transition hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-50"
+              >
+                {savingStation ? "Guardando…" : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

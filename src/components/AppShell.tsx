@@ -167,7 +167,7 @@ export function AppShell({
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       {/* desktop sidebar (fixed) */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-line bg-white lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-line bg-white lg:block print:hidden">
         {sidebar}
       </aside>
 
@@ -189,8 +189,8 @@ export function AppShell({
       )}
 
       {/* content column */}
-      <div className="flex flex-1 flex-col lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-white/85 px-4 backdrop-blur lg:px-6">
+      <div className="flex flex-1 flex-col lg:pl-60 print:pl-0">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-white/85 px-4 backdrop-blur lg:px-6 print:hidden">
           <button
             onClick={() => setOpen(true)}
             aria-label="Abrir menú"

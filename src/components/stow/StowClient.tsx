@@ -16,6 +16,8 @@ import {
   X,
   ScanLine,
   Pencil,
+  QrCode,
+  ShieldCheck,
 } from "lucide-react";
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinWall } from "@/components/stow/BinWall";
@@ -135,6 +137,11 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  // optional: scan the physical bin QR to confirm the operator is at the right hole
+  const [showBinScanner, setShowBinScanner] = useState(false);
+  const [binVerified, setBinVerified] = useState(false);
+  const [binScanError, setBinScanError] = useState<string | null>(null);
+
   // Zone is PRODUCT-driven until the operator explicitly picks one; from then
   // on the selection is sticky (cold-cart workflow) and mismatches only advise.
   const [zoneTouched, setZoneTouched] = useState(false);
@@ -155,7 +162,35 @@ export function StowClient({ zones }: { zones: Zone[] }) {
     setEnrichInfo(null);
     setShowEdit(false);
     setZoneTouched(false);
+    setBinVerified(false);
+    setBinScanError(null);
+    setShowBinScanner(false);
     focusBarcode();
+  }
+
+  // selecting a different bin invalidates a prior QR confirmation
+  function selectBin(id: string) {
+    setSelectedBinId(id);
+    setBinVerified(false);
+    setBinScanError(null);
+  }
+
+  // operator scanned the physical bin's QR (encodes its code) → compare
+  function onBinQrScanned(text: string) {
+    setShowBinScanner(false);
+    const norm = (s: string) => s.trim().toUpperCase().replace(/\s+/g, "");
+    const expected = selectedCell?.code ? norm(selectedCell.code) : null;
+    const got = norm(text);
+    if (expected && got === expected) {
+      setBinVerified(true);
+      setBinScanError(null);
+      navigator.vibrate?.(120);
+    } else {
+      setBinVerified(false);
+      setBinScanError(
+        `Escaneaste ${text.trim()}, pero el sistema indica ${selectedCell?.code ?? "—"}.`,
+      );
+    }
   }
 
   // zoneArg = null → the server decides from the product's category (the
@@ -193,6 +228,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
       };
       setScanned(s);
       setSelectedBinId(s.suggestion.binId);
+      setBinVerified(false);
+      setBinScanError(null);
       setZone(data.zone);
       setEnrichInfo(
         data.inferred_zone
@@ -812,6 +849,36 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                 )}
               </div>
 
+              {/* optional: confirm the physical hole by scanning its QR */}
+              {selectedCell && (
+                <div className="mt-3">
+                  {binVerified ? (
+                    <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                      <ShieldCheck className="h-4 w-4" /> Hueco {selectedCell.code} confirmado
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBinScanError(null);
+                        setShowBinScanner(true);
+                      }}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.99]"
+                    >
+                      <QrCode className="h-4 w-4" /> Verificar hueco (QR)
+                    </button>
+                  )}
+                  {binScanError && (
+                    <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {binScanError}
+                    </p>
+                  )}
+                  {showBinScanner && (
+                    <CameraScanner onScan={onBinQrScanned} onClose={() => setShowBinScanner(false)} />
+                  )}
+                </div>
+              )}
+
               {/* confirm */}
               <div className="sticky bottom-0 mt-auto space-y-2 bg-white pt-4">
                 <button
@@ -855,7 +922,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
               cells={strip}
               selectedBinId={selectedBinId}
               onSelect={(id) => {
-                setSelectedBinId(id);
+                selectBin(id);
                 setShowLocSheet(false);
               }}
             />
