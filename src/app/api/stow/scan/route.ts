@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, category, weight, image_url, enrichment_status")
+    .select("id, name, category, weight, image_url, barcode, enrichment_status")
     .eq("id", productId)
     .single();
 
@@ -158,7 +158,9 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     product_id: productId,
-    barcode,
+    // the product's stored barcode wins (it may have been hand-corrected),
+    // falling back to whatever was scanned this request.
+    barcode: product?.barcode ?? barcode,
     enrichment_status: (product?.enrichment_status ?? "manual") as EnrichmentStatus,
     product: {
       name: product?.name ?? null,

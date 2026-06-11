@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   X,
   ScanLine,
+  Pencil,
 } from "lucide-react";
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinWall } from "@/components/stow/BinWall";
@@ -35,6 +36,7 @@ interface Suggestion {
 interface Scanned {
   productId: string;
   label: string;
+  name: string | null; // raw name (null when unidentified) — for the editor
   category: string | null;
   imageUrl: string | null;
   barcode: string | null;
@@ -121,6 +123,14 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   const [showMeta, setShowMeta] = useState(false);
   const [enrichInfo, setEnrichInfo] = useState<EnrichInfo | null>(null);
 
+  // operator identity editor (name / category / barcode)
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editBarcode, setEditBarcode] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   // Zone is PRODUCT-driven until the operator explicitly picks one; from then
   // on the selection is sticky (cold-cart workflow) and mismatches only advise.
   const [zoneTouched, setZoneTouched] = useState(false);
@@ -139,6 +149,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
     setExpiry("");
     setShowMeta(false);
     setEnrichInfo(null);
+    setShowEdit(false);
     setZoneTouched(false);
     focusBarcode();
   }
@@ -167,6 +178,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
       const s: Scanned = {
         productId: data.product_id,
         label: data.product?.name || code || "Producto sin nombre",
+        name: data.product?.name ?? null,
         category: data.product?.category ?? null,
         imageUrl: data.product?.image_url ?? null,
         barcode: data.barcode ?? code,
@@ -201,6 +213,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                 ? {
                     ...prev,
                     label: e.name || prev.label,
+                    name: e.name ?? prev.name,
                     category: e.category ?? prev.category,
                     enrichmentStatus: e.enrichment_status ?? prev.enrichmentStatus,
                   }
@@ -237,6 +250,46 @@ export function StowClient({ zones }: { zones: Zone[] }) {
     setZoneTouched(true);
     setZone(z);
     if (scanned) doScan(scanned.barcode, z, scanned.productId);
+  }
+
+  function openEdit() {
+    if (!scanned) return;
+    setEditName(scanned.name ?? "");
+    setEditCategory(scanned.category ?? "");
+    setEditBarcode(scanned.barcode ?? "");
+    setEditError(null);
+    setShowEdit(true);
+  }
+
+  // Save the operator's identity corrections, then re-suggest with the new data
+  // (so a freshly-typed category re-infers the zone, unless the operator forced one).
+  async function saveEdit() {
+    if (!scanned) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const res = await fetch("/api/products/identify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_id: scanned.productId,
+          name: editName,
+          category: editCategory,
+          barcode: editBarcode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditError(data.error || "No se pudo guardar");
+        return;
+      }
+      setShowEdit(false);
+      await doScan(null, zoneTouched ? zone : null, scanned.productId);
+    } catch {
+      setEditError("Error de red");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   async function handleConfirm() {
@@ -603,11 +656,20 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
-                    Producto
-                    {scanned.enrichmentStatus === "queued" && (
-                      <span className="shimmer ml-2 normal-case tracking-normal">identificando…</span>
-                    )}
+                  <div className={`flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
+                    <span>
+                      Producto
+                      {scanned.enrichmentStatus === "queued" && (
+                        <span className="shimmer ml-2 normal-case tracking-normal">identificando…</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={openEdit}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold normal-case tracking-normal text-zinc-500 transition hover:bg-zinc-100 hover:text-ink"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Editar
+                    </button>
                   </div>
                   <div className="mt-0.5 line-clamp-2 text-lg font-bold leading-snug text-ink">
                     {scanned.label}
@@ -796,6 +858,89 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* identity editor (operator corrects name / category / barcode) */}
+      {showEdit && scanned && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowEdit(false)} />
+          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-5 shadow-2xl lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[30rem] lg:rounded-none lg:rounded-l-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-bold text-ink">Corregir producto</h2>
+              <button
+                type="button"
+                onClick={() => setShowEdit(false)}
+                aria-label="Cerrar"
+                className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                  Nombre
+                </label>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Nombre del producto"
+                  className="h-12 w-full rounded-xl border border-zinc-300 px-3 text-base text-ink outline-none transition focus:border-ink"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                  Categoría
+                </label>
+                <input
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  placeholder="Ej. Lácteos, Limpieza, Ferretería…"
+                  className="h-12 w-full rounded-xl border border-zinc-300 px-3 text-base text-ink outline-none transition focus:border-ink"
+                />
+                <p className="mt-1 text-xs text-zinc-400">
+                  Define la zona: lácteos/carnes → frío; el resto → ambiente.
+                </p>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                  Código de barras
+                </label>
+                <input
+                  value={editBarcode}
+                  onChange={(e) => setEditBarcode(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="Sin código"
+                  className={`h-12 w-full rounded-xl border border-zinc-300 px-3 text-base text-ink outline-none transition focus:border-ink ${NUM}`}
+                />
+              </div>
+              {editError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200">
+                  {editError}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEdit(false)}
+                className="h-12 flex-1 rounded-xl border border-zinc-300 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="h-12 flex-[2] rounded-xl bg-ink text-sm font-bold text-white transition hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-50"
+              >
+                {savingEdit ? "Guardando…" : "Guardar cambios"}
+              </button>
             </div>
           </div>
         </div>
