@@ -35,7 +35,10 @@ export async function mirrorImageToStorage(
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.byteLength === 0 || bytes.byteLength > MAX_BYTES) return null;
 
-    const ext = (contentType.split("/")[1] || "jpg").split("+")[0].replace("jpeg", "jpg");
+    const ext = (contentType.split("/")[1] || "jpg")
+      .split(";")[0]
+      .split("+")[0]
+      .replace("jpeg", "jpg");
     const path = `${warehouseId}/${productId}.${ext}`;
     const admin = createAdminClient();
     const { error } = await admin.storage.from(PRODUCT_IMAGES_BUCKET).upload(path, bytes, {
@@ -63,7 +66,10 @@ export async function uploadProductImage(
   try {
     if (bytes.byteLength === 0 || bytes.byteLength > MAX_BYTES) return null;
     if (!contentType.startsWith("image/")) return null;
-    const ext = (contentType.split("/")[1] || "jpg").split("+")[0].replace("jpeg", "jpg");
+    const ext = (contentType.split("/")[1] || "jpg")
+      .split(";")[0]
+      .split("+")[0]
+      .replace("jpeg", "jpg");
     const path = `${warehouseId}/${productId}.${ext}`;
     const admin = createAdminClient();
     const { error } = await admin.storage.from(PRODUCT_IMAGES_BUCKET).upload(path, bytes, {
