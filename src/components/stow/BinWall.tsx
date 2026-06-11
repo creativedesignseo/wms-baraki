@@ -21,7 +21,7 @@ export function BinWall({
   fill?: boolean;
 }) {
   if (cells.length === 0) {
-    return <p className="text-sm text-zinc-400">Esta zona no tiene bins activos.</p>;
+    return <p className="text-sm text-zinc-400">Esta zona no tiene ubicaciones activas.</p>;
   }
 
   // group by level, render top level first (physical elevation view)
@@ -50,7 +50,7 @@ export function BinWall({
               </span>
               <span className="h-px flex-1 bg-line" />
               <span className="font-[family-name:var(--font-num)] text-[11px] text-zinc-400">
-                {row.length} bins
+                {row.length} ubic.
               </span>
             </div>
 

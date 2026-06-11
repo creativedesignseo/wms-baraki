@@ -156,7 +156,7 @@ export function StationsManager({
       <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
           <Grid3x3 className="h-4 w-4 text-zinc-400" strokeWidth={1.8} />
-          Estaciones y bins
+          Estaciones y ubicaciones
         </h2>
         <span className={`text-[11px] text-zinc-400 ${NUM}`}>
           {stations.length} estaciones
@@ -196,7 +196,7 @@ export function StationsManager({
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs text-zinc-500 ${NUM}`}>
-                    {s.binCount} bins · {s.used}/{s.capacity} u
+                    {s.binCount} ubic. · {s.used}/{s.capacity} u
                   </span>
                   <span className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-zinc-100 sm:block">
                     <span
@@ -213,7 +213,7 @@ export function StationsManager({
                     onClick={() => addBins(s, 6)}
                     className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98] disabled:opacity-50"
                   >
-                    <Plus className="h-3.5 w-3.5" strokeWidth={2} />6 bins
+                    <Plus className="h-3.5 w-3.5" strokeWidth={2} />6 ubic.
                   </button>
                 </div>
               </li>
@@ -256,14 +256,14 @@ export function StationsManager({
 
           <div className="grid grid-cols-3 gap-3 sm:max-w-md">
             <label className="flex flex-col gap-1">
-              <span className={LABEL}>Bins</span>
+              <span className={LABEL}>Ubicaciones</span>
               <input
                 type="number"
                 min={0}
                 max={60}
                 value={binCount}
                 onChange={(e) => setBinCount(Number(e.target.value) || 0)}
-                title="Nº de bins"
+                title="Nº de ubicaciones"
                 className={`${FIELD} ${NUM}`}
               />
             </label>
@@ -274,7 +274,7 @@ export function StationsManager({
                 min={1}
                 value={binCap}
                 onChange={(e) => setBinCap(Number(e.target.value) || 1)}
-                title="Capacidad por bin"
+                title="Capacidad por ubicación"
                 className={`${FIELD} ${NUM}`}
               />
             </label>
@@ -323,8 +323,8 @@ export function StationsManager({
               {busy ? "Creando…" : "Crear estación"}
             </button>
             <p className="text-xs text-zinc-400">
-              Crea una estación con N bins de la capacidad indicada, repartidos en
-              niveles contiguos. El stow llevará cada producto a un bin de su zona.
+              Crea una estación con N ubicaciones de la capacidad indicada, repartidas en
+              niveles contiguos. Al guardar, cada producto irá a una ubicación de su zona.
             </p>
           </div>
         </form>

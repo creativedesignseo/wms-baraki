@@ -264,7 +264,7 @@ export default async function DashboardPage() {
               {occupiedZones.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-zinc-300 p-10 text-center text-sm text-zinc-400">
                   <Boxes className="mx-auto mb-2 h-6 w-6 text-zinc-300" strokeWidth={1.8} />
-                  No hay bins todavía. Crea una estación abajo.
+                  No hay ubicaciones todavía. Crea una estación abajo.
                 </div>
               ) : (
                 <div className="space-y-4">

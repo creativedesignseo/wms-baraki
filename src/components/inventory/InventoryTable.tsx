@@ -172,7 +172,7 @@ export function InventoryTable({
                         <span
                           className={`rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 ${NUM}`}
                         >
-                          {b.locationName ?? "sin bin"}
+                          {b.locationName ?? "sin ubicación"}
                         </span>
                         <span className={`text-sm font-bold text-ink ${NUM}`}>×{b.quantity}</span>
                         <span className="text-xs text-zinc-500">{b.condition}</span>
@@ -232,7 +232,7 @@ export function InventoryTable({
       <Link
         href="/stow"
         className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_6px_20px_rgba(225,25,49,0.4)] transition hover:bg-brand-dark active:scale-95"
-        aria-label="Recibir / stow"
+        aria-label="Guardar mercancía"
       >
         <Plus className="h-6 w-6" strokeWidth={2} />
       </Link>

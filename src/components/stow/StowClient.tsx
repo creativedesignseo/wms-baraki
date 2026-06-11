@@ -284,7 +284,7 @@ export function StowClient({
     return (
       <div className="flex flex-1 items-center justify-center p-8">
         <div className="max-w-md rounded-2xl border border-dashed border-zinc-300 bg-white p-10 text-center text-zinc-500">
-          No hay bins configurados. Pídele a un gerente que cree estaciones y bins en el Panel.
+          No hay ubicaciones configuradas. Pídele a un gerente que cree estaciones y ubicaciones en el Panel.
         </div>
       </div>
     );
@@ -641,7 +641,7 @@ export function StowClient({
                   disabled={busy || !selectedBinId}
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-ink text-base font-bold text-white transition hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-40"
                 >
-                  {busy ? "Guardando…" : "Confirmar stow"}
+                  {busy ? "Guardando…" : "Confirmar y guardar"}
                   {!busy && <ArrowRight className="h-5 w-5" />}
                 </button>
                 <button
@@ -660,11 +660,11 @@ export function StowClient({
         <div className="flex flex-1 flex-col p-4 lg:p-6">
           <div className="mb-3 flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
-              Pared · {ZONE_LABEL[scanned?.suggestion.zone ?? zone]}
+              Estantería · {ZONE_LABEL[scanned?.suggestion.zone ?? zone]}
             </span>
             {scanned && (
               <span className="text-xs font-medium text-zinc-400">
-                Toca otro bin para cambiar
+                Toca otra ubicación para cambiar
               </span>
             )}
           </div>

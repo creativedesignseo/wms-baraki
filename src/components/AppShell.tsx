@@ -33,7 +33,7 @@ const SECTIONS: NavSection[] = [
   {
     label: "Operación",
     items: [
-      { href: "/stow", label: "Stow", icon: ScanLine, roles: ["operator", "manager", "owner"] },
+      { href: "/stow", label: "Guardar", icon: ScanLine, roles: ["operator", "manager", "owner"] },
       { href: "/inventory", label: "Inventario", icon: Boxes, roles: ["operator", "manager", "owner"] },
     ],
   },
@@ -48,7 +48,7 @@ const SECTIONS: NavSection[] = [
 ];
 
 const PAGE_TITLES: Record<string, string> = {
-  "/stow": "Estación de stow",
+  "/stow": "Guardar mercancía",
   "/inventory": "Inventario",
   "/approval": "Cola de aprobación",
   "/dashboard": "Panel de control",
