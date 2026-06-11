@@ -14,6 +14,7 @@ import {
   Users,
   LogOut,
   Warehouse,
+  PackageMinus,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -35,6 +36,7 @@ const SECTIONS: NavSection[] = [
     label: "Operación",
     items: [
       { href: "/stow", label: "Guardar", icon: ScanLine, roles: ["operator", "manager", "owner"] },
+      { href: "/withdraw", label: "Retirar", icon: PackageMinus, roles: ["operator", "manager", "owner"] },
       { href: "/inventory", label: "Inventario", icon: Boxes, roles: ["operator", "manager", "owner"] },
     ],
   },
@@ -51,6 +53,7 @@ const SECTIONS: NavSection[] = [
 
 const PAGE_TITLES: Record<string, string> = {
   "/stow": "Guardar mercancía",
+  "/withdraw": "Retirar mercancía",
   "/inventory": "Inventario",
   "/approval": "Cola de aprobación",
   "/dashboard": "Panel de control",

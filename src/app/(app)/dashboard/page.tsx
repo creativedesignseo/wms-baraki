@@ -16,7 +16,7 @@ import { inferZone, resolveLevels, type BinForStow, type BinStripCell } from "@/
 import { levelMeta } from "@/lib/levels";
 import { StationsManager } from "@/components/dashboard/StationsManager";
 import { BinWall } from "@/components/stow/BinWall";
-import { ArrowRight, LayoutGrid, QrCode } from "lucide-react";
+import { ArrowRight, LayoutGrid, QrCode, History } from "lucide-react";
 import Link from "next/link";
 import type { Zone } from "@/lib/types";
 
@@ -159,6 +159,14 @@ export default async function DashboardPage() {
   }
 
   const occupiedZones = ZONES.filter((z) => zoneStats.has(z));
+
+  // Outbound audit trail (table exists after migration 0009; hide card before).
+  const { data: movements } = await supabase
+    .from("stock_movements")
+    .select("id, product_name, barcode, bin_code, quantity, reason, operator_name, created_at")
+    .eq("warehouse_id", wh)
+    .order("created_at", { ascending: false })
+    .limit(12);
 
   // The full location wall, grouped by zone — a manager's situational overview
   // (it used to clutter the operator's stow screen; now it lives here).
@@ -445,6 +453,58 @@ export default async function DashboardPage() {
             </ul>
           )}
         </section>
+
+        {/* outbound movements — the audit trail (who/when/what/where) */}
+        {movements && movements.length > 0 && (
+          <section
+            className="deck-rise rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+            style={{ animationDelay: "155ms" }}
+          >
+            <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <History className="h-4 w-4 text-zinc-400" strokeWidth={1.8} />
+                Movimientos recientes
+              </h2>
+              <span className={`text-[11px] text-zinc-400 ${NUM}`}>retiros · auditoría</span>
+            </header>
+            <ul className="divide-y divide-line">
+              {movements.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5 text-sm transition hover:bg-zinc-50"
+                >
+                  <span className={`shrink-0 text-xs text-zinc-400 ${NUM}`}>
+                    {new Date(m.created_at).toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "2-digit",
+                    })}{" "}
+                    {new Date(m.created_at).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium text-ink">
+                    {m.product_name || m.barcode || "(sin nombre)"}
+                  </span>
+                  <span className={`shrink-0 text-sm font-bold text-ink ${NUM}`}>
+                    −{m.quantity}
+                  </span>
+                  {m.bin_code && (
+                    <span className={`shrink-0 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 ${NUM}`}>
+                      {m.bin_code}
+                    </span>
+                  )}
+                  <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-600">
+                    {m.reason ?? "—"}
+                  </span>
+                  <span className="shrink-0 text-xs text-zinc-400">
+                    {m.operator_name ?? "—"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* full location wall by zone — manager situational overview */}
         {wallZones.length > 0 && (

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: batch } = await admin
     .from("batches")
-    .select("id, quantity, status, notes")
+    .select("id, quantity, status, notes, product_id, products(name, barcode), bins(code)")
     .eq("id", body.batch_id)
     .eq("warehouse_id", wh)
     .maybeSingle();
@@ -84,6 +84,31 @@ export async function POST(request: Request) {
       { error: "No se pudo retirar", detail: error.message },
       { status: 500 },
     );
+  }
+
+  // Audit trail — tolerant of the table not existing yet (pre-migration 0009).
+  const prod = (Array.isArray(batch.products) ? batch.products[0] : batch.products) as
+    | { name?: string | null; barcode?: string | null }
+    | null;
+  const bin = (Array.isArray(batch.bins) ? batch.bins[0] : batch.bins) as
+    | { code?: string }
+    | null;
+  try {
+    await admin.from("stock_movements").insert({
+      warehouse_id: wh,
+      product_id: batch.product_id,
+      product_name: prod?.name ?? null,
+      barcode: prod?.barcode ?? null,
+      batch_id: batch.id,
+      bin_code: bin?.code ?? null,
+      type: "retiro",
+      quantity: qty,
+      reason,
+      operator_id: ctx.userId,
+      operator_name: ctx.profile.full_name,
+    });
+  } catch {
+    /* movements table missing — batch notes still carry the trail */
   }
 
   return NextResponse.json({ ok: true, remaining: Math.max(0, remaining) });

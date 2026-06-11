@@ -194,6 +194,39 @@ type BinInsert = {
   created_at?: string;
 };
 
+// Audit trail for outbound stock (table added by migration 0009 — code that
+// touches it must tolerate its absence pre-migration).
+type StockMovementRow = {
+  id: string;
+  warehouse_id: string;
+  product_id: string | null;
+  product_name: string | null;
+  barcode: string | null;
+  batch_id: string | null;
+  bin_code: string | null;
+  type: string;
+  quantity: number;
+  reason: string | null;
+  operator_id: string;
+  operator_name: string | null;
+  created_at: string;
+};
+type StockMovementInsert = {
+  id?: string;
+  warehouse_id: string;
+  product_id?: string | null;
+  product_name?: string | null;
+  barcode?: string | null;
+  batch_id?: string | null;
+  bin_code?: string | null;
+  type?: string;
+  quantity: number;
+  reason?: string | null;
+  operator_id: string;
+  operator_name?: string | null;
+  created_at?: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -237,6 +270,12 @@ export type Database = {
         Row: BinRow;
         Insert: BinInsert;
         Update: Partial<BinInsert>;
+        Relationships: [];
+      };
+      stock_movements: {
+        Row: StockMovementRow;
+        Insert: StockMovementInsert;
+        Update: Partial<StockMovementInsert>;
         Relationships: [];
       };
     };
