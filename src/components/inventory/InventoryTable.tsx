@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  PackageMinus,
+  X,
 } from "lucide-react";
 import { FEFOBadge } from "@/components/FEFOBadge";
 import { formatMoney } from "@/lib/money";
@@ -85,8 +87,53 @@ export function InventoryTable({
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [withdraw, setWithdraw] = useState<{
+    batchId: string;
+    max: number;
+    productName: string | null;
+  } | null>(null);
+  const [wQty, setWQty] = useState("");
+  const [wReason, setWReason] = useState("vendido");
+  const [wBusy, setWBusy] = useState(false);
+  const [wError, setWError] = useState<string | null>(null);
   const params = useSearchParams();
   const router = useRouter();
+
+  function openWithdraw(batchId: string, max: number, productName: string | null) {
+    setWithdraw({ batchId, max, productName });
+    setWQty(String(max));
+    setWReason("vendido");
+    setWError(null);
+  }
+
+  async function doWithdraw() {
+    if (!withdraw) return;
+    const qty = parseInt(wQty, 10);
+    if (!Number.isFinite(qty) || qty <= 0 || qty > withdraw.max) {
+      setWError(`Cantidad entre 1 y ${withdraw.max}`);
+      return;
+    }
+    setWBusy(true);
+    setWError(null);
+    try {
+      const res = await fetch("/api/batches/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batch_id: withdraw.batchId, quantity: qty, reason: wReason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWError(data.error || "No se pudo retirar");
+        return;
+      }
+      setWithdraw(null);
+      router.refresh();
+    } catch {
+      setWError("Error de red");
+    } finally {
+      setWBusy(false);
+    }
+  }
 
   // manager/owner only — delete a product (blocked server-side if it has stock).
   async function deleteProduct(id: string, name: string | null) {
@@ -100,6 +147,8 @@ export function InventoryTable({
       });
       const data = await res.json();
       if (!res.ok) {
+        // 409 = has stock → open the product so its batches (with "Retirar") show
+        if (res.status === 409) setOpen((o) => ({ ...o, [id]: true }));
         window.alert(data.error || "No se pudo borrar");
         return;
       }
@@ -235,6 +284,15 @@ export function InventoryTable({
                             {new Date(b.reception_date).toLocaleDateString("es-ES")}
                           </span>
                         </span>
+                        {canManage && b.status === "activo" && (
+                          <button
+                            type="button"
+                            onClick={() => openWithdraw(b.id, b.quantity, row.product.name)}
+                            className="inline-flex h-7 items-center gap-1 rounded-lg border border-zinc-300 bg-white px-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                          >
+                            <PackageMinus className="h-3.5 w-3.5" /> Retirar
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -278,6 +336,82 @@ export function InventoryTable({
           )}
         </div>
       </div>
+
+      {/* withdraw stock sheet (manager/owner) */}
+      {withdraw && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setWithdraw(null)} />
+          <div className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-5 shadow-2xl lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[26rem] lg:rounded-none lg:rounded-l-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-bold text-ink">Retirar mercancía</h3>
+              <button
+                type="button"
+                onClick={() => setWithdraw(null)}
+                aria-label="Cerrar"
+                className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-zinc-500">
+              {withdraw.productName || "(sin nombre)"} ·{" "}
+              <span className={NUM}>{withdraw.max}</span> uds disponibles en este lote.
+            </p>
+            <div className="space-y-3.5">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                  Cantidad a retirar
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={withdraw.max}
+                  value={wQty}
+                  onChange={(e) => setWQty(e.target.value)}
+                  className={`h-12 w-full rounded-xl border border-zinc-300 px-3 text-base text-ink outline-none transition focus:border-ink ${NUM}`}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                  Motivo
+                </label>
+                <select
+                  value={wReason}
+                  onChange={(e) => setWReason(e.target.value)}
+                  className="h-12 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-ink outline-none transition focus:border-ink"
+                >
+                  <option value="vendido">Vendido</option>
+                  <option value="dañado">Dañado</option>
+                  <option value="ajuste">Ajuste de inventario</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              {wError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200">
+                  {wError}
+                </p>
+              )}
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setWithdraw(null)}
+                className="h-12 flex-1 rounded-xl border border-zinc-300 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={doWithdraw}
+                disabled={wBusy}
+                className="inline-flex h-12 flex-[2] items-center justify-center gap-1.5 rounded-xl bg-ink text-sm font-bold text-white transition hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-50"
+              >
+                <PackageMinus className="h-4 w-4" /> {wBusy ? "Retirando…" : "Retirar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sortly-style add FAB → go stow a new item (the one brand-red accent) */}
       <Link
