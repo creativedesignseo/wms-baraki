@@ -15,6 +15,9 @@ const ZONES: Zone[] = ["general", "refrigerado", "congelado", "hazmat"];
 interface ScanBody {
   barcode: string | null;
   zone?: Zone; // optional operator override; otherwise inferred from product
+  // Re-suggest for an already-created product (e.g. the operator picks a zone
+  // for a no-barcode item) WITHOUT inserting a duplicate "pending" row.
+  product_id?: string | null;
 }
 
 export async function POST(request: Request) {
@@ -34,9 +37,21 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const wh = ctx.profile.warehouse_id;
 
-  // ── resolve or create the product (reuse by barcode within tenant) ──────────
+  // ── resolve or create the product ──────────────────────────────────────────
   let productId: string | null = null;
-  if (barcode) {
+  // 1) explicit reuse (re-suggest for an item already scanned this session)
+  const reuseId = body.product_id?.trim() || null;
+  if (reuseId) {
+    const { data: owned } = await supabase
+      .from("products")
+      .select("id")
+      .eq("warehouse_id", wh)
+      .eq("id", reuseId)
+      .maybeSingle();
+    if (owned) productId = owned.id;
+  }
+  // 2) reuse by barcode within the tenant
+  if (!productId && barcode) {
     const { data: existing } = await supabase
       .from("products")
       .select("id")

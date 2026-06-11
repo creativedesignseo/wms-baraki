@@ -145,14 +145,19 @@ export function StowClient({ zones }: { zones: Zone[] }) {
 
   // zoneArg = null → the server decides from the product's category (the
   // operator hasn't forced a zone). Returns the EFFECTIVE zone in data.zone.
-  const doScan = useCallback(async (code: string | null, zoneArg: Zone | null) => {
+  const doScan = useCallback(
+    async (code: string | null, zoneArg: Zone | null, reuseId?: string | null) => {
     setError(null);
     setBusy(true);
     try {
       const res = await fetch("/api/stow/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ barcode: code, zone: zoneArg ?? undefined }),
+        body: JSON.stringify({
+          barcode: code,
+          zone: zoneArg ?? undefined,
+          product_id: reuseId ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -226,16 +231,21 @@ export function StowClient({ zones }: { zones: Zone[] }) {
     }
   }
 
-  // explicit operator zone choice (sticky); re-suggest if a product is scanned
+  // explicit operator zone choice (sticky); re-suggest for the SAME product
+  // (passing its id avoids creating a duplicate row for no-barcode items).
   function chooseZone(z: Zone) {
     setZoneTouched(true);
     setZone(z);
-    if (scanned) doScan(scanned.barcode, z);
+    if (scanned) doScan(scanned.barcode, z, scanned.productId);
   }
 
   async function handleConfirm() {
     if (!scanned || !selectedBinId) {
       setError("No hay ubicación seleccionada");
+      return;
+    }
+    // Defense in depth: never save a hand-keyed item before its zone is chosen.
+    if (scanned.enrichmentStatus === "manual" && !scanned.category && !zoneTouched) {
       return;
     }
     setError(null);
@@ -364,7 +374,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
               onChange={(e) => setBarcode(e.target.value)}
               onKeyDown={onBarcodeKeyDown}
               placeholder="Pistola o teclado…"
-              className={`mt-6 h-20 w-full rounded-2xl border-2 border-zinc-200 bg-zinc-50 px-5 text-center text-xl text-ink outline-none transition focus:border-brand focus:bg-white focus:shadow-[0_0_0_5px_rgba(225,25,49,0.1)] lg:h-24 lg:text-2xl ${NUM}`}
+              className={`mt-6 h-20 w-full rounded-2xl border-2 border-zinc-200 bg-zinc-50 px-5 text-center text-xl text-ink outline-none transition focus:border-ink focus:bg-white focus:shadow-[0_0_0_5px_rgba(23,23,26,0.08)] lg:h-24 lg:text-2xl ${NUM}`}
             />
             <div className="mt-4 grid grid-cols-2 gap-3">
               <button
@@ -468,7 +478,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                 <button
                   type="button"
                   onClick={() => chooseZone(adviceZone)}
-                  className="ml-auto flex h-9 items-center gap-1.5 rounded-lg bg-amber-600 px-3 text-sm font-bold text-white transition hover:bg-amber-700 active:scale-[0.98]"
+                  className="ml-auto flex h-11 items-center gap-1.5 rounded-lg bg-amber-600 px-4 text-sm font-bold text-white transition hover:bg-amber-700 active:scale-[0.98]"
                 >
                   Mover a {ZONE_LABEL[adviceZone]} <ArrowRight className="h-4 w-4" />
                 </button>
@@ -546,7 +556,10 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                         return (
                           <span
                             className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold"
-                            style={{ backgroundColor: `${selectedMeta.text}22` }}
+                            style={{
+                              backgroundColor: `${selectedMeta.text}33`,
+                              boxShadow: `inset 0 0 0 1px ${selectedMeta.text}55`,
+                            }}
                           >
                             <cue.Icon className="h-4 w-4" strokeWidth={2.5} /> {cue.verb}
                           </span>
@@ -556,7 +569,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                   </div>
 
                   {scanned.suggestion.stationName && (
-                    <div className="mt-4 text-sm font-medium opacity-70">
+                    <div className="mt-4 text-sm font-medium opacity-90">
                       {scanned.suggestion.stationName}
                     </div>
                   )}
@@ -564,10 +577,10 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                   <button
                     type="button"
                     onClick={() => setShowLocSheet(true)}
-                    className="mt-5 self-start rounded-lg px-3 py-1.5 text-sm font-semibold underline-offset-2 hover:underline"
-                    style={{ backgroundColor: `${selectedMeta.text}1a` }}
+                    className="mt-5 inline-flex items-center gap-1.5 self-start rounded-lg px-3 py-2 text-sm font-semibold"
+                    style={{ backgroundColor: `${selectedMeta.text}26` }}
                   >
-                    No es esta ubicación →
+                    No es esta ubicación <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
@@ -649,7 +662,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                       key={n}
                       type="button"
                       onClick={() => setQuantity((q) => q + n)}
-                      className={`flex-1 rounded-lg bg-zinc-100 px-2 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-200 ${NUM}`}
+                      className={`h-12 flex-1 rounded-lg bg-zinc-100 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-200 ${NUM}`}
                     >
                       +{n}
                     </button>
@@ -657,7 +670,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                   <button
                     type="button"
                     onClick={() => setQuantity(1)}
-                    className="flex-1 rounded-lg border border-zinc-200 px-2 py-2 text-sm font-semibold text-zinc-400 transition hover:bg-zinc-50"
+                    className="h-12 flex-1 rounded-lg border border-zinc-200 text-sm font-semibold text-zinc-400 transition hover:bg-zinc-50"
                   >
                     Reset
                   </button>
