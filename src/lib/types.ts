@@ -85,8 +85,9 @@ export interface Product {
   name: string | null;
   description: string | null;
   category: string | null;
-  // weight is NEVER invented. NULL when unknown.
+  // weight (kg) and volume (L) are NEVER invented. NULL when unknown.
   weight: number | null;
+  volume: number | null;
   image_url: string | null;
   reference_price_usd: number | null;
   suggested_price_usd: number | null;

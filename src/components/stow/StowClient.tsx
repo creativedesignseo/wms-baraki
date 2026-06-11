@@ -39,6 +39,8 @@ interface Scanned {
   name: string | null; // raw name (null when unidentified) — for the editor
   category: string | null;
   imageUrl: string | null;
+  weight: number | null; // kg
+  volume: number | null; // L
   barcode: string | null;
   enrichmentStatus: EnrichmentStatus;
   suggestion: Suggestion;
@@ -128,6 +130,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editBarcode, setEditBarcode] = useState("");
+  const [editWeight, setEditWeight] = useState("");
+  const [editVolume, setEditVolume] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -181,6 +185,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
         name: data.product?.name ?? null,
         category: data.product?.category ?? null,
         imageUrl: data.product?.image_url ?? null,
+        weight: data.product?.weight ?? null,
+        volume: data.product?.volume ?? null,
         barcode: data.barcode ?? code,
         enrichmentStatus: data.enrichment_status,
         suggestion: data.suggestion,
@@ -257,6 +263,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
     setEditName(scanned.name ?? "");
     setEditCategory(scanned.category ?? "");
     setEditBarcode(scanned.barcode ?? "");
+    setEditWeight(scanned.weight != null ? String(scanned.weight) : "");
+    setEditVolume(scanned.volume != null ? String(scanned.volume) : "");
     setEditError(null);
     setShowEdit(true);
   }
@@ -276,6 +284,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
           name: editName,
           category: editCategory,
           barcode: editBarcode,
+          weight: editWeight,
+          volume: editVolume,
         }),
       });
       const data = await res.json();
@@ -683,6 +693,16 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                         {scanned.category}
                       </span>
                     )}
+                    {scanned.weight != null && (
+                      <span className={`rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500 ${NUM}`}>
+                        {scanned.weight} kg
+                      </span>
+                    )}
+                    {scanned.volume != null && (
+                      <span className={`rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500 ${NUM}`}>
+                        {scanned.volume} L
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -918,6 +938,35 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                   className={`h-12 w-full rounded-xl border border-zinc-300 px-3 text-base text-ink outline-none transition focus:border-ink ${NUM}`}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                    Peso (kg)
+                  </label>
+                  <input
+                    value={editWeight}
+                    onChange={(e) => setEditWeight(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="—"
+                    className={`h-12 w-full rounded-xl border border-zinc-300 px-3 text-base text-ink outline-none transition focus:border-ink ${NUM}`}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                    Volumen (L)
+                  </label>
+                  <input
+                    value={editVolume}
+                    onChange={(e) => setEditVolume(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="—"
+                    className={`h-12 w-full rounded-xl border border-zinc-300 px-3 text-base text-ink outline-none transition focus:border-ink ${NUM}`}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Peso y volumen ayudan a decidir la balda (lo pesado va abajo).
+              </p>
               {editError && (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 ring-1 ring-red-200">
                   {editError}

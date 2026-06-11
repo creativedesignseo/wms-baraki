@@ -85,6 +85,7 @@ type ProductRow = {
   description: string | null;
   category: string | null;
   weight: number | null;
+  volume: number | null;
   image_url: string | null;
   reference_price_usd: number | null;
   suggested_price_usd: number | null;
@@ -104,6 +105,7 @@ type ProductInsert = {
   description?: string | null;
   category?: string | null;
   weight?: number | null;
+  volume?: number | null;
   image_url?: string | null;
   reference_price_usd?: number | null;
   suggested_price_usd?: number | null;

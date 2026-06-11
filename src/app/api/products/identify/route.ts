@@ -18,6 +18,16 @@ interface IdentifyBody {
   name?: string | null;
   category?: string | null;
   barcode?: string | null;
+  weight?: number | string | null; // kg
+  volume?: number | string | null; // L
+}
+
+// Parse an operator-typed measurement: a non-negative number, else null.
+// Never invents a value — empty/invalid clears the field.
+function parseMeasure(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "string" ? parseFloat(v.replace(",", ".")) : v;
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 export async function POST(request: Request) {
@@ -57,6 +67,11 @@ export async function POST(request: Request) {
     name,
     category,
     barcode,
+    // weight (kg) / volume (L): operator-measured placement hints. Only written
+    // when the key is present in the request, so editing the name alone never
+    // wipes a known weight. Still never invented — empty clears to null.
+    ...("weight" in body ? { weight: parseMeasure(body.weight) } : {}),
+    ...("volume" in body ? { volume: parseMeasure(body.volume) } : {}),
     // A hand-corrected product counts as manually identified.
     enrichment_status: "manual",
   };

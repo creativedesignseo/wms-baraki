@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext } from "@/lib/auth";
 import { lookupUpc } from "@/lib/upc";
+import { mirrorImageToStorage } from "@/lib/storage";
 import { getAIProvider } from "@/lib/ai";
 import { suggestLocation, inferZone } from "@/lib/rules/putaway";
 import type { EnrichedProduct, RawLookupData } from "@/lib/types";
@@ -147,7 +148,17 @@ export async function POST(request: Request) {
     if (enriched.weight !== null) update.weight = enriched.weight;
     if (enriched.suggested_price_usd !== null)
       update.suggested_price_usd = enriched.suggested_price_usd;
-    if (rawData?.image_url) update.image_url = rawData.image_url;
+    if (rawData?.image_url) {
+      // Mirror the provider image into our https bucket (provider URLs are
+      // often http:// and get blocked as mixed content). Falls back to the
+      // original URL if the bucket isn't set up or the fetch fails.
+      const mirrored = await mirrorImageToStorage(
+        rawData.image_url,
+        warehouseId,
+        product.id,
+      );
+      update.image_url = mirrored ?? rawData.image_url;
+    }
     if (rawData?.reference_price_usd != null)
       update.reference_price_usd = rawData.reference_price_usd;
   }
