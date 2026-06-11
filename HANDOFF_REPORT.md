@@ -1,51 +1,59 @@
 # HANDOFF — WMS Baraki Logística
 
-> Realidad **verificada** (no supuesta). Última actualización: 2026-06-11.
+> Realidad **verificada** (no supuesta). Última actualización: 2026-06-11 (rediseño Industrial Precision).
 
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `9a205ec` — `feat(stow): full-height workstation layout — bins fill the screen`
-- **Deploy Vercel:** `wms-r8uv5z7iv...` · estado **● Ready** · Production
+- **Commit desplegado:** `5cc3113` — `feat(ui): Industrial Precision redesign — full app + level-colored bin wall`
+- **Deploy Vercel:** `wms-pw7xyt3bd…` · estado **● Ready** · Production
 - **Verificación (2026-06-11):**
-  - `tsc --noEmit` → limpio
-  - `eslint` → limpio
-  - `next build` → OK (`/stow` server-rendered dynamic)
-  - `GET /login` → **200**
-  - `GET /stow` sin sesión → **307** → /login (auth/RLS funcionando)
+  - `tsc --noEmit` / `eslint` / `next build` → limpios
+  - Playwright en PRODUCCIÓN: /stow renderiza la pared por niveles; logout → /login
+    (nuevo diseño) → login → /inventory. Todo OK a 1920×1080; móvil 390px verificado en local.
+
+## Rediseño "Industrial Precision" (completado este turno)
+
+- **Design system:** Archivo (UI) + IBM Plex Mono (números/códigos); neutros zinc/papel
+  (#f6f6f4), bordes hairline `--color-line`, rojo de marca #e11931 usado con cuentagotas.
+  Tokens en `globals.css`; paleta de NIVELES LaceUp (`src/lib/levels.ts`).
+- **COLOR = NIVEL físico** (modelo LaceUp/Amazon): 1 Suelo amarillo `#f2c40f`,
+  2 Medio morado `#9b59b6`, 3 Alto azul `#2e86c1`, 4 verde, 5 rojo.
+- **Stow** (`StowClient` + `BinWall`): superficie de comando edge-to-edge. La pared
+  dibuja la estantería real en alzado (alto arriba, suelo abajo), columnas alineadas
+  como bahías; bin sugerido late (bin-pulse); tarjeta "GUÁRDALO EN" del color del nivel;
+  feed de sesión con chips de nivel; selector de zona segmentado.
+- **Lógica:** `suggestBin` prefiere baldas bajas para pesados; `resolveLevels` con
+  fallback por bandas cuando la columna `level` aún no existe (código funciona ANTES
+  y DESPUÉS de la migración, vía `select("*")`).
+- **Resto de páginas** (inventario, panel, aprobación, ajustes, login, loading)
+  restiladas al mismo contrato vía 4 agentes paralelos + auditorías adversariales
+  (todas en verde; único hallazgo real —addBins sin nivel— corregido a mano).
+- **StationsManager:** nuevo campo "Niveles" (1–5) con preview de distribución
+  coloreada; sondea la columna `level` antes de insertarla (compat pre-migración).
+
+## ⚠️ Pendiente INMEDIATO: ejecutar migración 0007 en Supabase
+
+`supabase/migrations/0007_bin_levels.sql` — añade `bins.level` y reparte el seed demo
+(AMB 3 niveles × 6, REF 2 × 3, CON suelo). **La app ya funciona sin ella** (bandas
+inferidas), pero los niveles REALES los fija el SQL. Pegar en Supabase → SQL Editor.
 
 ## Stack
 
 Next.js 16 (App Router, `proxy.ts`) · React 19 · TS · Tailwind v4 ·
-Supabase (Postgres + Auth + RLS + Storage, `hiofgzfhmhcvajsbiolz`) ·
-OpenRouter `google/gemini-2.5-flash-lite` para enriquecimiento IA ·
+Supabase (`hiofgzfhmhcvajsbiolz`) · OpenRouter `google/gemini-2.5-flash-lite` ·
 deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
-
-## Qué hace hoy (operativo, en vivo)
-
-- **Recepción ciega:** escanear → ficha mínima sub-segundo → `/api/enrich` async.
-- **Stow caótico-por-zona:** muro de bins a pantalla completa (workstation 1920×1080),
-  numerados 1–N, gradiente de color cyan→rojo por índice de posición.
-  Zona la dicta el producto (Ambiente por defecto); el operario la cambia para frío.
-- **Inventario** estilo Sortly (foto + filas expandibles).
-- **Aprobación** de precios (USD + local) y **Panel** admin (tasas, ocupación, FEFO).
-- **Multi-tenant** por `warehouse_id` con RLS real (sin `USING(true)`).
 
 ## Pendiente (priorizado)
 
-1. **Sistema de color por NIVEL de altura** (discutido 2026-06-11, **no implementado**).
-   El usuario quiere el modelo LaceUp/Amazon: el color = nivel físico, no el índice.
-   - Baraki Valencia tiene **3 niveles**: bajo (suelo), medio, alto. Más neveras.
-   - Colores LaceUp **brillantes** (los de la captura del usuario), no oscuros:
-     nivel 1 amarillo `#F5C518`, nivel 2 morado `#9B59B6`, nivel 3 azul `#2980B9`
-     (paleta de 5 disponible: +verde `#27AE60`, +rojo `#E74C3C` si crecen alturas).
-   - Requiere: campo `level` en tabla `bins`, código `AMB-1-01`/`AMB-2-01`/...,
-     `binColor()` por nivel en vez de por índice. Debe ser **configurable** por almacén.
-2. Propagar diseño Sortly a Aprobación y Ajustes.
+1. **Ejecutar 0007 en Supabase** (ver arriba).
+2. Limpiar productos demo `(sin nombre)` con stock 0 (SQL opcional entregado en chat).
 3. Alerta de zona equivocada cuando la IA detecta perecedero en bin Ambiente.
-4. Limpiar productos demo `(sin nombre)` con stock 0.
+4. Sustituir placeholder `[PRODUCT_NAME]` por el nombre comercial final.
+5. Página legacy `/scan` sigue existiendo (sin enlace en nav) — decidir si se elimina.
 
 ## Notas
 
-- Reemplazar placeholder `[PRODUCT_NAME]` por el nombre comercial final.
 - Login demo (owner): `creativedesignseo@gmail.com`.
+- Capturas de verificación de este turno: redesign-*.png / prod-*.png en la raíz
+  (gitignoradas).
