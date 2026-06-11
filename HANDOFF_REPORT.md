@@ -5,7 +5,7 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `bc62964` — retirar mercancía (salida de stock)
+- **Commit desplegado:** `66b6f54` — fecha de caducidad con calendario (bug corregido)
 - **Deploy Vercel:** estado **● READY** · Production · alias activo
 - **Retirar mercancía** (`/api/batches/withdraw`, manager/owner): salida de stock
   parcial (reduce cantidad) o total (status `retirado`); motivo en notes. Botón
