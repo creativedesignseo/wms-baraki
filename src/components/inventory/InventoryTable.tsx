@@ -2,8 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Package, PackageSearch, Plus, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Package,
+  PackageSearch,
+  Plus,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+} from "lucide-react";
 import { FEFOBadge } from "@/components/FEFOBadge";
 import { formatMoney } from "@/lib/money";
 import type { FefoLevel } from "@/lib/fefo";
@@ -65,6 +73,7 @@ export function InventoryTable({
   totalPages,
   total,
   filtering,
+  canManage = false,
 }: {
   rows: InventoryRow[];
   currency: string;
@@ -72,9 +81,35 @@ export function InventoryTable({
   totalPages: number;
   total: number;
   filtering: boolean;
+  canManage?: boolean;
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<string | null>(null);
   const params = useSearchParams();
+  const router = useRouter();
+
+  // manager/owner only — delete a product (blocked server-side if it has stock).
+  async function deleteProduct(id: string, name: string | null) {
+    if (!window.confirm(`¿Borrar "${name || "(sin nombre)"}"? No se puede deshacer.`)) return;
+    setDeleting(id);
+    try {
+      const res = await fetch("/api/products/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        window.alert(data.error || "No se pudo borrar");
+        return;
+      }
+      router.refresh();
+    } catch {
+      window.alert("Error de red al borrar");
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   function pageUrl(p: number) {
     const next = new URLSearchParams(params.toString());
@@ -111,12 +146,13 @@ export function InventoryTable({
           const fefoExp = row.batches.find((b) => b.expiration_date)?.expiration_date ?? null;
           return (
             <div key={row.product.id}>
-              <button
-                type="button"
+              <div
                 onClick={() =>
                   expandable && setOpen((o) => ({ ...o, [row.product.id]: !o[row.product.id] }))
                 }
-                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-zinc-50 sm:px-5"
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-zinc-50 sm:px-5 ${
+                  expandable ? "cursor-pointer" : ""
+                }`}
               >
                 <Thumb src={row.product.image_url} name={row.product.name} />
 
@@ -158,8 +194,23 @@ export function InventoryTable({
                       strokeWidth={1.8}
                     />
                   )}
+
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteProduct(row.product.id, row.product.name);
+                      }}
+                      disabled={deleting === row.product.id}
+                      aria-label="Borrar producto"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-300 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" strokeWidth={1.8} />
+                    </button>
+                  )}
                 </div>
-              </button>
+              </div>
 
               {isOpen && expandable && (
                 <div className="border-t border-line bg-zinc-50/70 px-4 py-3 sm:px-5">

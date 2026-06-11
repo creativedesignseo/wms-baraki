@@ -186,6 +186,7 @@ export default async function InventoryPage({
         totalPages={totalPages}
         total={total}
         filtering={filtering}
+        canManage={ctx.profile.role === "manager" || ctx.profile.role === "owner"}
       />
     </div>
   );
