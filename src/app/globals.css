@@ -1,37 +1,54 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Industrial Precision — design tokens
+   Disciplined zinc/paper console; the LaceUp level palette is the only place
+   color shouts (it mirrors the physical colored labels on the racks).
+   ──────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f6f4;
+  --foreground: #17171a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-num);
 
-  /* Sortly-inspired brand system */
+  /* brand */
   --color-brand: #e11931;
   --color-brand-dark: #bd1228;
   --color-brand-soft: #fdecee;
-  --color-ink: #20242e;
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* console neutrals */
+  --color-ink: #17171a;
+  --color-canvas: #f6f6f4;
+  --color-line: #e7e7e3;
+
+  /* LaceUp level palette — color = physical shelf height */
+  --color-l1: #f2c40f; /* nivel 1 · suelo */
+  --color-l2: #9b59b6; /* nivel 2 · medio */
+  --color-l3: #2e86c1; /* nivel 3 · alto  */
+  --color-l4: #27ae60; /* nivel 4         */
+  --color-l5: #e74c3c; /* nivel 5         */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-display), system-ui, sans-serif;
 }
 
-/* "Command deck" staggered entrance (one orchestrated page-load reveal) */
+::selection {
+  background: #e11931;
+  color: #fff;
+}
+
+/* ── motion ─────────────────────────────────────────────────────────────── */
+
+/* one orchestrated entrance for page loads (stagger with animation-delay) */
 @keyframes deck-rise {
   from {
     opacity: 0;
@@ -45,8 +62,72 @@ body {
 .deck-rise {
   animation: deck-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* suggested-bin heartbeat on the wall */
+@keyframes bin-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(23, 23, 26, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(23, 23, 26, 0);
+  }
+}
+.bin-pulse {
+  animation: bin-pulse 1.6s ease-out infinite;
+}
+
+/* enrichment "identificando…" shimmer */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, #a1a1aa 40%, #17171a 50%, #a1a1aa 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+
+/* success toast pop */
+@keyframes toast-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.toast-pop {
+  animation: toast-pop 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .deck-rise {
+  .deck-rise,
+  .bin-pulse,
+  .shimmer,
+  .toast-pop {
     animation: none;
   }
+}
+
+/* ── warehouse DNA: barcode stripe motif (decorative) ───────────────────── */
+.barcode-stripes {
+  background-image: repeating-linear-gradient(
+    90deg,
+    currentColor 0 2px,
+    transparent 2px 6px,
+    currentColor 6px 7px,
+    transparent 7px 13px,
+    currentColor 13px 16px,
+    transparent 16px 21px
+  );
 }

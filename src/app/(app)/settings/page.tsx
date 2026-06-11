@@ -1,4 +1,5 @@
 // /settings — warehouse settings (owner only).
+import { Warehouse } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsClient } from "@/components/settings/SettingsClient";
@@ -15,18 +16,37 @@ export default async function SettingsPage() {
     .single();
 
   return (
-    <div className="max-w-lg">
-      <h1 className="mb-4 text-xl font-bold text-slate-900">Ajustes del almacén</h1>
-      {warehouse ? (
-        <SettingsClient
-          id={warehouse.id}
-          name={warehouse.name}
-          currency={warehouse.currency_local}
-          rate={warehouse.exchange_rate_usd}
-        />
-      ) : (
-        <p className="text-slate-500">No se encontró el almacén.</p>
-      )}
+    <div className="flex-1 px-4 py-6 lg:px-8 lg:py-7">
+      <div className="mx-auto max-w-2xl lg:mx-0">
+        <header className="deck-rise mb-6">
+          <div className="font-[family-name:var(--font-num)] text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            Configuración
+          </div>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink">
+            Ajustes del almacén
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Nombre, moneda local y tasa de cambio del almacén.
+          </p>
+        </header>
+
+        {warehouse ? (
+          <SettingsClient
+            id={warehouse.id}
+            name={warehouse.name}
+            currency={warehouse.currency_local}
+            rate={warehouse.exchange_rate_usd}
+          />
+        ) : (
+          <div
+            className="deck-rise rounded-2xl border border-dashed border-zinc-300 p-10 text-center text-sm text-zinc-400"
+            style={{ animationDelay: "60ms" }}
+          >
+            <Warehouse className="mx-auto mb-3 h-6 w-6 text-zinc-300" strokeWidth={1.8} />
+            No se encontró el almacén.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

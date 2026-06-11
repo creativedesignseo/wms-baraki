@@ -2,10 +2,10 @@
 import { daysUntil, fefoLevel } from "@/lib/fefo";
 
 const STYLES: Record<string, string> = {
-  verde: "bg-green-100 text-green-800",
-  amarillo: "bg-amber-100 text-amber-800",
-  rojo: "bg-red-100 text-red-800",
-  none: "bg-slate-100 text-slate-500",
+  verde: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  amarillo: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  rojo: "bg-red-50 text-red-700 ring-1 ring-red-200",
+  none: "bg-zinc-100 text-zinc-600",
 };
 
 export function FEFOBadge({ expiration }: { expiration: string | null }) {
@@ -19,7 +19,7 @@ export function FEFOBadge({ expiration }: { expiration: string | null }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${STYLES[level]}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 font-[family-name:var(--font-num)] text-[11px] font-semibold tabular-nums ${STYLES[level]}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
       {label}

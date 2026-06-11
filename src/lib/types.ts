@@ -61,6 +61,8 @@ export interface Bin {
   station_id: string;
   code: string;
   position: number;
+  // Physical shelf height, 1 = suelo. Optional until migration 0007 lands.
+  level?: number;
   zone: Zone;
   capacity: number;
   active: boolean;

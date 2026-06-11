@@ -92,10 +92,11 @@ export async function POST(request: Request) {
       : inferZone(product?.category ?? null, false);
 
   // ── bins of that ZONE (across stations) + occupancy + same-product bins ─────
+  // select("*") keeps this working before AND after migration 0007 adds `level`.
   const [{ data: bins }, { data: occ }, { data: sameBatches }] = await Promise.all([
     supabase
       .from("bins")
-      .select("id, station_id, code, position, zone, capacity, active, stations(name)")
+      .select("*, stations(name)")
       .eq("warehouse_id", wh)
       .eq("zone", zone)
       .eq("active", true)
@@ -121,6 +122,7 @@ export async function POST(request: Request) {
       station_name: st?.name ?? "",
       code: b.code,
       position: b.position,
+      level: b.level ?? null,
       zone: b.zone as Zone,
       capacity: b.capacity,
       used: usedMap.get(b.id) ?? 0,

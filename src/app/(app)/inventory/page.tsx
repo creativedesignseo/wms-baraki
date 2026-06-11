@@ -157,20 +157,28 @@ export default async function InventoryPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div>
-      <h1 className="mb-4 font-[family-name:var(--font-display)] text-2xl font-extrabold tracking-tight text-ink">
-        Inventario
-      </h1>
-      <InventoryFilters
-        categories={categories}
-        current={{
-          category: sp.category ?? "",
-          zone: zoneFilter,
-          status: statusFilter,
-          expiry: expiryFilter,
-          q: sp.q ?? "",
-        }}
-      />
+    <div className="flex-1 px-4 py-6 lg:px-8 lg:py-7">
+      <div className="deck-rise mb-6">
+        <div className="mb-1 font-[family-name:var(--font-num)] text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+          Operación · Stock
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">Inventario</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Stock por producto, desglosado por lote (FEFO).
+        </p>
+      </div>
+      <div className="deck-rise" style={{ animationDelay: "60ms" }}>
+        <InventoryFilters
+          categories={categories}
+          current={{
+            category: sp.category ?? "",
+            zone: zoneFilter,
+            status: statusFilter,
+            expiry: expiryFilter,
+            q: sp.q ?? "",
+          }}
+        />
+      </div>
       <InventoryTable
         rows={rows}
         currency={currency}

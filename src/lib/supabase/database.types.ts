@@ -173,6 +173,8 @@ type BinRow = {
   code: string;
   position: number;
   zone: Zone;
+  // Optional until migration 0007 adds the column (1=suelo … 5).
+  level?: number;
   capacity: number;
   active: boolean;
   created_at: string;
@@ -183,6 +185,7 @@ type BinInsert = {
   station_id: string;
   code: string;
   position?: number;
+  level?: number;
   zone: Zone;
   capacity?: number;
   active?: boolean;

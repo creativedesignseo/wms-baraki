@@ -6,6 +6,7 @@
 // when unknown we assume "ligero" for shelving purposes (not stored).
 
 import type { Location, Zone, WeightClass, Level } from "@/lib/types";
+import { fallbackLevel } from "@/lib/levels";
 
 export interface PutawayInput {
   category: string | null;
@@ -132,6 +133,8 @@ export interface BinForStow {
   station_name: string;
   code: string;
   position: number;
+  // Physical shelf height (1 = suelo). Null/undefined pre-migration → banded fallback.
+  level?: number | null;
   zone: Zone;
   capacity: number;
   used: number; // active units currently in the bin (from bin_occupancy)
@@ -145,6 +148,7 @@ export interface BinStripCell {
   id: string;
   code: string;
   position: number;
+  level: number; // resolved level (real or banded fallback) — drives the color
   pct: number;
   color: BinStripColor;
 }
@@ -153,10 +157,33 @@ export interface BinSuggestion {
   zone: Zone;
   binId: string | null;
   binCode: string | null;
+  binLevel: number | null;
+  binPosition: number | null;
   stationId: string | null;
   stationName: string | null;
   strip: BinStripCell[]; // bins of the suggested bin's station, ordered
   reason: string;
+}
+
+/** Resolve every bin's level: real DB value, or banded fallback within its station. */
+export function resolveLevels(bins: BinForStow[]): Map<string, number> {
+  const byStation = new Map<string, BinForStow[]>();
+  for (const b of bins) {
+    (byStation.get(b.station_id) ?? byStation.set(b.station_id, []).get(b.station_id)!).push(b);
+  }
+  const out = new Map<string, number>();
+  for (const group of byStation.values()) {
+    const hasReal = group.some((b) => typeof b.level === "number" && b.level > 0);
+    for (const b of group) {
+      out.set(
+        b.id,
+        hasReal && typeof b.level === "number" && b.level > 0
+          ? b.level
+          : fallbackLevel(b.position, group.length),
+      );
+    }
+  }
+  return out;
 }
 
 function pctOf(used: number, capacity: number): number {
@@ -177,18 +204,27 @@ export function suggestBin(
   // The operator works AT a station (which fixes the zone); forceZone uses it.
   // Falls back to inferring the zone from the product when no station is given.
   const zone = input.forceZone ?? inferZone(input.category, input.expiration_date !== null);
+  const weightClass = inferWeightClass(input.weight);
+  const levels = resolveLevels(bins);
 
   const inZone = bins.filter((b) => b.active && b.zone === zone);
   const eligible = inZone.filter((b) => b.used < b.capacity);
   const consolidate = eligible.filter((b) => b.hasSameProduct);
   const pool = consolidate.length > 0 ? consolidate : eligible;
 
+  // Heavy items prefer low shelves (ergonomics + safety); ties break on
+  // least-full, then position.
   const chosen =
     pool.length > 0
-      ? [...pool].sort(
-          (a, b) =>
-            a.used / a.capacity - b.used / b.capacity || a.position - b.position,
-        )[0]
+      ? [...pool].sort((a, b) => {
+          if (weightClass === "pesado") {
+            const dl = (levels.get(a.id) ?? 1) - (levels.get(b.id) ?? 1);
+            if (dl !== 0) return dl;
+          }
+          return (
+            a.used / a.capacity - b.used / b.capacity || a.position - b.position
+          );
+        })[0]
       : null;
 
   // The strip shows the bins of the chosen bin's station (or, if none eligible,
@@ -205,13 +241,22 @@ export function suggestBin(
       else if (pct >= FULL_PCT || !b.active) color = "full";
       else if (pct >= FILLING_PCT) color = "filling";
       else color = "free";
-      return { id: b.id, code: b.code, position: b.position, pct, color };
+      return {
+        id: b.id,
+        code: b.code,
+        position: b.position,
+        level: levels.get(b.id) ?? 1,
+        pct,
+        color,
+      };
     });
 
   return {
     zone,
     binId: chosen?.id ?? null,
     binCode: chosen?.code ?? null,
+    binLevel: chosen ? (levels.get(chosen.id) ?? 1) : null,
+    binPosition: chosen?.position ?? null,
     stationId,
     stationName: chosen?.station_name ?? null,
     strip,

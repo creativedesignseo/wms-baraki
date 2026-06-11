@@ -26,15 +26,7 @@ export default async function ApprovalPage() {
   ]);
 
   return (
-    <div>
-      <h1 className="mb-1 text-xl font-bold text-slate-900">
-        Cola de aprobación
-      </h1>
-      <p className="mb-5 text-sm text-slate-500">
-        Revisa el precio y los datos antes de aprobar. El precio local se calcula
-        con la tasa actual ({warehouse?.exchange_rate_usd ?? 1}{" "}
-        {warehouse?.currency_local ?? "USD"}/USD).
-      </p>
+    <div className="flex-1 px-4 py-6 lg:px-8 lg:py-7">
       <ApprovalClient
         initialProducts={(products as Product[]) ?? []}
         rate={warehouse?.exchange_rate_usd ?? 1}

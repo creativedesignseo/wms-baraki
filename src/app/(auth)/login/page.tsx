@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Warehouse } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -11,6 +12,9 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+
+const INPUT =
+  "mt-1.5 h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none transition focus:border-ink";
 
 function LoginForm() {
   const router = useRouter();
@@ -39,56 +43,84 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">[PRODUCT_NAME]</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Inicia sesión para acceder al almacén
-        </p>
-
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Correo
-            </label>
-            <input
-              type="email"
-              required
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-              placeholder="operario@almacen.com"
-            />
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
+      <div className="w-full max-w-sm">
+        {/* brand mark */}
+        <div className="deck-rise flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand text-white shadow-[0_2px_8px_rgba(225,25,49,0.35)]">
+            <Warehouse className="h-5 w-5" strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[13px] font-bold uppercase tracking-[0.08em] text-ink">
+              [PRODUCT_NAME]
+            </div>
+            <div className="font-[family-name:var(--font-num)] text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              Consola de almacén
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-              placeholder="••••••••"
-            />
-          </div>
+        </div>
 
-          {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
-          )}
+        {/* industrial touch: barcode motif */}
+        <div aria-hidden className="barcode-stripes mt-5 h-6 text-zinc-200" />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
-          >
-            {loading ? "Entrando…" : "Entrar"}
-          </button>
-        </form>
+        <div
+          className="deck-rise mt-5 rounded-2xl border border-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          style={{ animationDelay: "60ms" }}
+        >
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Iniciar sesión</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Inicia sesión para acceder al almacén
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-6 space-y-4">
+            <div>
+              <label htmlFor="login-email" className="block text-[13px] font-medium text-zinc-700">
+                Correo
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                required
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={INPUT}
+                placeholder="operario@almacen.com"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="login-password"
+                className="block text-[13px] font-medium text-zinc-700"
+              >
+                Contraseña
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={INPUT}
+                placeholder="••••••••"
+              />
+            </div>
+
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-50"
+            >
+              {loading ? "Entrando…" : "Entrar"}
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   );
