@@ -86,10 +86,9 @@ export async function POST(request: Request) {
 
   // ── decide the zone: operator override → else inferred from the product ─────
   // (At scan time a brand-new product has no category yet → "general"/Ambiente.)
+  const inferredZone: Zone = inferZone(product?.category ?? null, false);
   const zone: Zone =
-    body.zone && ZONES.includes(body.zone)
-      ? body.zone
-      : inferZone(product?.category ?? null, false);
+    body.zone && ZONES.includes(body.zone) ? body.zone : inferredZone;
 
   // ── bins of that ZONE (across stations) + occupancy + same-product bins ─────
   // select("*") keeps this working before AND after migration 0007 adds `level`.
@@ -148,6 +147,9 @@ export async function POST(request: Request) {
     enrichment_status: (product?.enrichment_status ?? "manual") as EnrichmentStatus,
     product: { name: product?.name ?? null, category: product?.category ?? null },
     zone,
+    // What the product's category says (≠ zone when the operator overrides):
+    // the client shows a "this looks like Refrigerado" advisory on mismatch.
+    inferred_zone: product?.category ? inferredZone : null,
     suggestion,
   });
 }

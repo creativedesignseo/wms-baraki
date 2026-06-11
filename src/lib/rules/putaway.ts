@@ -16,33 +16,73 @@ export interface PutawayInput {
 
 const HEAVY_KG = 10; // >= this is "pesado"
 
-const FROZEN_HINTS = ["congel", "helado", "frozen", "hielo"];
+// Bilingual hints: UPC providers (UPCitemdb, OpenFoodFacts) return ENGLISH
+// categories ("Dairy Products > Butter & Margarine"); the AI normalizes to
+// Spanish but may fail/rate-limit. Both languages must route correctly.
+const FROZEN_HINTS = ["congel", "helado", "frozen", "hielo", "ice cream"];
 const FRIDGE_HINTS = [
   "refriger",
   "lácteo",
   "lacteo",
+  "dairy",
   "leche",
+  "milk",
   "queso",
+  "cheese",
+  "mantequilla",
+  "butter",
+  "margarina",
+  "margarine",
+  "yogur", // yogur(t)
+  // NOTE: "cream"/"crema"/"nata" deliberately excluded — they collide with
+  // cosmetics ("face cream", color crema) and unrelated words ("natural").
+  // "ice cream" lives in FROZEN_HINTS; dairy cream rarely lacks another hint.
+  "huevo",
   "carne",
+  "meat",
   "pollo",
+  "chicken",
+  "poultry",
+  "pavo",
+  "beef",
+  "cerdo",
+  "pork",
   "pescado",
+  "marisco",
+  "seafood",
   "fresco",
-  "yogur",
   "embutido",
+  "salchicha",
+  "sausage",
+  "jamón",
+  "jamon",
+  "charcut", // charcutería / charcuterie
 ];
 const HAZMAT_HINTS = [
   "químic",
   "quimic",
+  "chemical",
   "inflam",
+  "flammable",
   "aerosol",
   "cloro",
+  "bleach",
   "lejía",
   "lejia",
   "solvente",
+  "solvent",
   "pesticida",
+  "pesticide",
   "batería",
   "bateria",
-  "gas",
+  // NOT bare "gas" — collides with "gaseosa" (soda) and "gasa" (gauze).
+  "gas licuad",
+  "gas comprim",
+  "bombona",
+  "propano",
+  "propane",
+  "butano",
+  "butane",
 ];
 
 function matches(text: string, hints: string[]): boolean {

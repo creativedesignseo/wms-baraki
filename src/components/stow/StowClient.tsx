@@ -10,6 +10,7 @@ import {
   Plus,
   ArrowRight,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinWall } from "@/components/stow/BinWall";
@@ -42,6 +43,14 @@ interface RecentItem {
   binCode: string;
   level: number;
   position: number | null;
+}
+// Identification that arrives DURING the stow (scan response for known
+// products, or the async enrich response seconds later for new ones).
+interface EnrichInfo {
+  productId: string;
+  name: string | null;
+  category: string | null;
+  inferredZone: Zone | null;
 }
 
 const CONDITIONS: { value: Condition; label: string }[] = [
@@ -99,10 +108,14 @@ export function StowClient({
   const [showCamera, setShowCamera] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ text: string; tone: "ok" | "warn" } | null>(null);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [showMeta, setShowMeta] = useState(false);
+  const [enrichInfo, setEnrichInfo] = useState<EnrichInfo | null>(null);
 
+  // Zone is PRODUCT-driven until the operator explicitly picks a tab; from then
+  // on the selection is sticky (cold-cart workflow) and mismatches only advise.
+  const zoneTouchedRef = useRef(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const focusBarcode = useCallback(() => {
     requestAnimationFrame(() => barcodeRef.current?.focus());
@@ -116,17 +129,20 @@ export function StowClient({
     setQuantity(1);
     setExpiry("");
     setShowMeta(false);
+    setEnrichInfo(null);
     focusBarcode();
   }
 
-  const doScan = useCallback(async (code: string | null, zoneArg: Zone) => {
+  // zoneArg = null → the server decides from the product's category (the
+  // operator hasn't forced a zone). Returns the EFFECTIVE zone in data.zone.
+  const doScan = useCallback(async (code: string | null, zoneArg: Zone | null) => {
     setError(null);
     setBusy(true);
     try {
       const res = await fetch("/api/stow/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ barcode: code, zone: zoneArg }),
+        body: JSON.stringify({ barcode: code, zone: zoneArg ?? undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -143,12 +159,48 @@ export function StowClient({
       };
       setScanned(s);
       setSelectedBinId(s.suggestion.binId);
+      setZone(data.zone); // keep tabs + wall in sync with the effective zone
+      setEnrichInfo(
+        data.inferred_zone
+          ? {
+              productId: data.product_id,
+              name: data.product?.name ?? null,
+              category: data.product?.category ?? null,
+              inferredZone: data.inferred_zone,
+            }
+          : null,
+      );
       if (data.enrichment_status === "queued") {
+        const pid: string = data.product_id;
         fetch("/api/enrich", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ product_id: data.product_id }),
-        }).catch(() => {});
+          body: JSON.stringify({ product_id: pid }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((e) => {
+            if (!e) return;
+            // live-update the product card if the operator still has it open
+            setScanned((prev) =>
+              prev && prev.productId === pid
+                ? {
+                    ...prev,
+                    label: e.name || prev.label,
+                    category: e.category ?? prev.category,
+                    enrichmentStatus: e.enrichment_status ?? prev.enrichmentStatus,
+                  }
+                : prev,
+            );
+            if (e.name || e.category) {
+              setEnrichInfo({
+                productId: pid,
+                name: e.name ?? null,
+                category: e.category ?? null,
+                inferredZone: e.inferred_zone ?? null,
+              });
+            }
+          })
+          .catch(() => {});
       }
     } catch {
       setError("Error de red al escanear");
@@ -160,12 +212,15 @@ export function StowClient({
   function onBarcodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (barcode.trim()) doScan(barcode.trim(), zone);
+      if (barcode.trim()) {
+        doScan(barcode.trim(), zoneTouchedRef.current ? zone : null);
+      }
     }
   }
 
-  // change zone: re-suggest for the same product if one is already scanned
+  // change zone: explicit operator choice (sticky); re-suggest if scanned
   function changeZone(z: Zone) {
+    zoneTouchedRef.current = true;
     setZone(z);
     if (scanned) doScan(scanned.barcode, z);
   }
@@ -210,8 +265,13 @@ export function StowClient({
           ...prev,
         ].slice(0, 30),
       );
-      setFlash(`${scanned.label} ×${quantity} → ${data.bin_code}`);
-      setTimeout(() => setFlash(null), 2400);
+      if (data.zone_warning) {
+        setFlash({ text: data.zone_warning, tone: "warn" });
+        setTimeout(() => setFlash(null), 6500);
+      } else {
+        setFlash({ text: `${scanned.label} ×${quantity} → ${data.bin_code}`, tone: "ok" });
+        setTimeout(() => setFlash(null), 2400);
+      }
       resetForNext();
     } catch {
       setError("Error de red al guardar");
@@ -233,6 +293,15 @@ export function StowClient({
   const strip = scanned ? scanned.suggestion.strip : (zoneStrips[zone] ?? []);
   const selectedCell = scanned ? strip.find((c) => c.id === selectedBinId) : undefined;
   const selectedMeta = selectedCell ? levelMeta(selectedCell.level) : null;
+  // Zone advisory: identification (live or from the catalog) points elsewhere.
+  const adviceZone =
+    scanned &&
+    enrichInfo &&
+    enrichInfo.productId === scanned.productId &&
+    enrichInfo.inferredZone &&
+    enrichInfo.inferredZone !== scanned.suggestion.zone
+      ? enrichInfo.inferredZone
+      : null;
   const avgPct = strip.length
     ? Math.round(strip.reduce((s, c) => s + Math.min(100, c.pct), 0) / strip.length)
     : 0;
@@ -312,7 +381,7 @@ export function StowClient({
                   </button>
                   <button
                     type="button"
-                    onClick={() => doScan(null, zone)}
+                    onClick={() => doScan(null, zoneTouchedRef.current ? zone : null)}
                     className="flex h-12 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98]"
                   >
                     <PackagePlus className="h-4.5 w-4.5" /> Sin código
@@ -324,7 +393,7 @@ export function StowClient({
                       onScan={(text) => {
                         setShowCamera(false);
                         setBarcode(text);
-                        doScan(text, zone);
+                        doScan(text, zoneTouchedRef.current ? zone : null);
                       }}
                       onClose={() => setShowCamera(false)}
                     />
@@ -400,6 +469,30 @@ export function StowClient({
                   )}
                 </div>
               </div>
+
+              {/* zone advisory — identification says this belongs elsewhere */}
+              {adviceZone && (
+                <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 px-3.5 py-3 ring-1 ring-amber-300">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <div className="min-w-0 flex-1 text-sm text-amber-900">
+                    <div>
+                      <span className="font-bold">Parece {ZONE_LABEL[adviceZone]}.</span>
+                      {enrichInfo?.category && (
+                        <span className="text-amber-800/80"> {enrichInfo.category}</span>
+                      )}
+                    </div>
+                    {zones.includes(adviceZone) && (
+                      <button
+                        type="button"
+                        onClick={() => changeZone(adviceZone)}
+                        className="mt-2 flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 text-sm font-bold text-white transition hover:bg-amber-700 active:scale-[0.98]"
+                      >
+                        Mover a {ZONE_LABEL[adviceZone]} <ArrowRight className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* target bin — the answer */}
               {selectedCell && selectedMeta ? (
@@ -584,13 +677,25 @@ export function StowClient({
         </div>
       </div>
 
-      {/* success toast */}
+      {/* save toast (ok = saved; warn = saved but zone mismatch) */}
       {flash && (
-        <div className="toast-pop fixed right-4 top-16 z-50 flex items-center gap-2.5 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white shadow-2xl">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
-            <Check className="h-3 w-3" strokeWidth={3} />
+        <div
+          className={`toast-pop fixed right-4 top-16 z-50 flex max-w-md items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-2xl ${
+            flash.tone === "warn" ? "bg-amber-600" : "bg-ink"
+          }`}
+        >
+          <span
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+              flash.tone === "warn" ? "bg-white/25" : "bg-emerald-500"
+            }`}
+          >
+            {flash.tone === "warn" ? (
+              <AlertTriangle className="h-3 w-3" strokeWidth={3} />
+            ) : (
+              <Check className="h-3 w-3" strokeWidth={3} />
+            )}
           </span>
-          {flash}
+          {flash.text}
         </div>
       )}
     </div>

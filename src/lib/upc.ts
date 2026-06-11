@@ -24,10 +24,7 @@ interface UpcItemDbResponse {
   items?: UpcItemDbItem[];
 }
 
-export async function lookupUpc(barcode: string): Promise<UpcLookupResult> {
-  const clean = barcode.trim();
-  if (!clean) return { found: false };
-
+async function lookupUpcItemDb(clean: string): Promise<UpcLookupResult> {
   try {
     const res = await fetch(
       `${UPCITEMDB_TRIAL}?upc=${encodeURIComponent(clean)}`,
@@ -61,4 +58,56 @@ export async function lookupUpc(barcode: string): Promise<UpcLookupResult> {
   } catch {
     return { found: false };
   }
+}
+
+// OpenFoodFacts — free, no key, no hard rate limit; excellent for groceries
+// (Baraki's main flow). Fallback when UPCitemdb misses or is rate-limited.
+const OFF_API = "https://world.openfoodfacts.org/api/v2/product/";
+
+interface OffProduct {
+  product_name?: string;
+  brands?: string;
+  categories?: string;
+  image_url?: string;
+}
+
+async function lookupOpenFoodFacts(clean: string): Promise<UpcLookupResult> {
+  try {
+    const res = await fetch(
+      `${OFF_API}${encodeURIComponent(clean)}.json?fields=product_name,brands,categories,image_url`,
+      { headers: { Accept: "application/json" }, cache: "no-store" },
+    );
+    if (!res.ok) return { found: false };
+    const data = (await res.json()) as { status?: number; product?: OffProduct };
+    const p = data.product;
+    if (data.status !== 1 || !p || (!p.product_name && !p.categories)) {
+      return { found: false };
+    }
+    return {
+      found: true,
+      name: p.product_name || null,
+      brand: p.brands || null,
+      category: p.categories || null,
+      description: null,
+      image_url: p.image_url || null,
+      weight: null,
+      reference_price_usd: null,
+    };
+  } catch {
+    return { found: false };
+  }
+}
+
+export async function lookupUpc(barcode: string): Promise<UpcLookupResult> {
+  const clean = barcode.trim();
+  if (!clean) return { found: false };
+
+  const primary = await lookupUpcItemDb(clean);
+  if (primary.found) return primary;
+
+  // OFF indexes most US UPC-12 codes as EAN-13 with a leading zero.
+  const off = await lookupOpenFoodFacts(clean);
+  if (off.found) return off;
+  if (clean.length === 12) return lookupOpenFoodFacts(`0${clean}`);
+  return { found: false };
 }

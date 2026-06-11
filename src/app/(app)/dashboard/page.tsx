@@ -12,7 +12,10 @@ import {
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fefoLevel } from "@/lib/fefo";
+import { inferZone } from "@/lib/rules/putaway";
+import { levelMeta } from "@/lib/levels";
 import { StationsManager } from "@/components/dashboard/StationsManager";
+import { ArrowRight } from "lucide-react";
 import type { Zone } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +52,7 @@ export default async function DashboardPage() {
     { data: occ },
     { data: expBatches },
     { data: stations },
+    { data: placedBatches },
   ] = await Promise.all([
     supabase
       .from("batches")
@@ -77,6 +81,14 @@ export default async function DashboardPage() {
       .select("id, name, zone, active")
       .eq("warehouse_id", wh)
       .order("name", { ascending: true }),
+    // active placed batches → zone mismatch detection (relocation alerts)
+    supabase
+      .from("batches")
+      .select("quantity, products(name, category), bins!inner(code, zone, level)")
+      .eq("warehouse_id", wh)
+      .eq("status", "activo")
+      .not("bin_id", "is", null)
+      .limit(300),
   ]);
 
   const itemsToday = (todayBatches ?? []).reduce((s, b) => s + b.quantity, 0);
@@ -145,6 +157,39 @@ export default async function DashboardPage() {
   }
 
   const occupiedZones = ZONES.filter((z) => zoneStats.has(z));
+
+  // Relocation alerts: a batch whose product category implies a different
+  // temperature zone than the bin it physically sits in (e.g. butter in
+  // Ambiente). Only flags products with a known category.
+  interface Reloc {
+    name: string;
+    quantity: number;
+    binCode: string;
+    level: number;
+    from: Zone;
+    to: Zone;
+  }
+  const relocations: Reloc[] = [];
+  for (const b of placedBatches ?? []) {
+    const prod = (Array.isArray(b.products) ? b.products[0] : b.products) as
+      | { name: string | null; category: string | null }
+      | null;
+    const bin = (Array.isArray(b.bins) ? b.bins[0] : b.bins) as
+      | { code: string; zone: Zone; level: number | null }
+      | null;
+    if (!prod?.category || !bin) continue;
+    const target = inferZone(prod.category, false);
+    if (target !== bin.zone) {
+      relocations.push({
+        name: prod.name ?? "(sin nombre)",
+        quantity: b.quantity,
+        binCode: bin.code,
+        level: bin.level ?? 1,
+        from: bin.zone,
+        to: target,
+      });
+    }
+  }
 
   return (
     <div className="flex-1 px-4 py-6 lg:px-8 lg:py-7">
@@ -306,6 +351,65 @@ export default async function DashboardPage() {
             )}
           </section>
         </div>
+
+        {/* relocation alerts: products sitting in the wrong temperature zone */}
+        <section
+          className="deck-rise rounded-2xl border border-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          style={{ animationDelay: "150ms" }}
+        >
+          <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <AlertTriangle
+                className={`h-4 w-4 ${relocations.length ? "text-amber-500" : "text-zinc-400"}`}
+                strokeWidth={1.8}
+              />
+              Reubicaciones sugeridas
+            </h2>
+            {relocations.length > 0 && (
+              <span
+                className={`rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200 ${NUM}`}
+              >
+                {relocations.length}
+              </span>
+            )}
+          </header>
+          {relocations.length === 0 ? (
+            <div className="p-5">
+              <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-400">
+                <Boxes className="mx-auto mb-2 h-6 w-6 text-zinc-300" strokeWidth={1.8} />
+                Todo está en su zona correcta.
+              </div>
+            </div>
+          ) : (
+            <ul className="divide-y divide-line">
+              {relocations.map((r, i) => {
+                const meta = levelMeta(r.level);
+                return (
+                  <li
+                    key={i}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-5 py-3 transition hover:bg-zinc-50"
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span className="truncate text-sm font-medium text-ink">{r.name}</span>
+                      <span className={`shrink-0 text-xs text-zinc-400 ${NUM}`}>×{r.quantity}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold ${NUM}`}
+                        style={{ backgroundColor: meta.color, color: meta.text }}
+                      >
+                        {r.binCode}
+                      </span>
+                      <span className="text-xs text-zinc-400">{ZONE_LABEL[r.from]}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-zinc-400" strokeWidth={2} />
+                      <span className="text-xs font-semibold text-amber-700">{ZONE_LABEL[r.to]}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
         {/* stations + bins management */}
         <div className="deck-rise" style={{ animationDelay: "180ms" }}>

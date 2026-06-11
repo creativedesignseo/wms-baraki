@@ -14,7 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext } from "@/lib/auth";
 import { lookupUpc } from "@/lib/upc";
 import { getAIProvider } from "@/lib/ai";
-import { suggestLocation } from "@/lib/rules/putaway";
+import { suggestLocation, inferZone } from "@/lib/rules/putaway";
 import type { EnrichedProduct, RawLookupData } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   // Verify the product belongs to the caller's tenant (RLS-scoped read).
   const { data: product } = await supabase
     .from("products")
-    .select("id, barcode, enrichment_status")
+    .select("id, barcode, name, category, enrichment_status")
     .eq("id", body.product_id)
     .eq("warehouse_id", warehouseId)
     .maybeSingle();
@@ -56,10 +56,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
   }
 
-  // Already enriched or manually identified → nothing to do.
+  // Already enriched or manually identified → nothing to do. Still return the
+  // identification so the stow screen can show name + advise on the zone.
   if (product.enrichment_status !== "queued") {
     return NextResponse.json(
-      { skipped: true, enrichment_status: product.enrichment_status },
+      {
+        skipped: true,
+        enrichment_status: product.enrichment_status,
+        name: product.name,
+        category: product.category,
+        inferred_zone: inferZone(product.category, false),
+      },
       { status: 200 },
     );
   }
@@ -91,6 +98,12 @@ export async function POST(request: Request) {
     } else {
       status = "failed";
     }
+  }
+
+  // Honesty: "enriched" with nothing identified is a lie — it hides the product
+  // from manual review. No name AND no category → failed (manager identifies).
+  if (status === "enriched" && !enriched?.name && !enriched?.category) {
+    status = "failed";
   }
 
   // ── 4: putaway suggestion ───────────────────────────────────────────────────
@@ -161,11 +174,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // The stow screen awaits this response in the background: it updates the
+  // product label live and warns if the identified zone differs from where
+  // the operator is about to stow (e.g. butter scanned into Ambiente).
   return NextResponse.json(
     {
       ok: true,
       enrichment_status: status,
       suggested_location_id: suggestedLocationId,
+      name: enriched?.name ?? null,
+      category: enriched?.category ?? null,
+      inferred_zone: inferZone(enriched?.category ?? null, false),
     },
     { status: 200 },
   );
