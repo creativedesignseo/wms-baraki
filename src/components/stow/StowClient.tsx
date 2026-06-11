@@ -98,16 +98,6 @@ function heightCue(level: number): { Icon: typeof ArrowUp; verb: string } {
   return { Icon: ArrowUp, verb: "Alcanza · alto" };
 }
 
-function mmyyToDate(mmyy: string): string | null {
-  const m = mmyy.replace(/\D/g, "");
-  if (m.length !== 4) return null;
-  const month = parseInt(m.slice(0, 2), 10);
-  const year = 2000 + parseInt(m.slice(2), 10);
-  if (month < 1 || month > 12) return null;
-  const lastDay = new Date(year, month, 0).getDate();
-  return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-}
-
 export function StowClient({ zones }: { zones: Zone[] }) {
   const [zone, setZone] = useState<Zone>(zones[0] ?? "general");
   const [barcode, setBarcode] = useState("");
@@ -360,7 +350,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
           quantity,
           condition,
           origin,
-          expiration_date: mmyyToDate(expiry),
+          // native date input gives YYYY-MM-DD directly — no silent parsing.
+          expiration_date: expiry || null,
         }),
       });
       const data = await res.json();
@@ -835,15 +826,18 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-zinc-500">Caducidad (MMYY)</label>
+                      <label className="block text-[11px] font-medium text-zinc-500">
+                        Caducidad
+                      </label>
                       <input
+                        type="date"
                         value={expiry}
                         onChange={(e) => setExpiry(e.target.value)}
-                        inputMode="numeric"
-                        maxLength={5}
-                        placeholder="1226"
                         className={`mt-1 w-full ${field} ${NUM}`}
                       />
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        Si el producto caduca, elige el día. Si no, déjalo vacío.
+                      </p>
                     </div>
                   </div>
                 )}
