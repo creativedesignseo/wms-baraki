@@ -5,12 +5,34 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `66b6f54` — fecha de caducidad con calendario (bug corregido)
-- **Deploy Vercel:** estado **● READY** · Production · alias activo
-- **Retirar mercancía** (`/api/batches/withdraw`, manager/owner): salida de stock
-  parcial (reduce cantidad) o total (status `retirado`); motivo en notes. Botón
-  "Retirar" por lote en Inventario; al intentar borrar un producto con stock (409) el
-  producto se auto-expande para retirar ahí mismo. Verificado en vivo.
+- **Commit desplegado:** `cea4c78` — retiro por código de barras + FEFO + auditoría
+- **Deploy Vercel:** `wms-iathhg7yu…` · estado **● READY** · Production · alias activo
+
+## ⚠️ Pendiente INMEDIATO del owner: ejecutar migración 0009 en Supabase
+
+`supabase/migrations/0009_stock_movements.sql` (SQL entregado en chat) crea la tabla
+de **auditoría de retiros** (fecha+hora, operario con nombre, producto snapshot, hueco,
+cantidad, motivo). La app funciona sin ella (las notas del lote registran igual), pero
+el **historial visible en el Panel** y la auditoría real empiezan al ejecutarla.
+
+## Retiro por código de barras (misión completada 2026-06-11)
+
+- **Página /withdraw "Retirar"** (operator/manager/owner) — espejo de Guardar:
+  escanear código (pistola/teclado/cámara) → producto con foto + stock total + lotes
+  en orden FEFO ("saldrá primero lo que caduca antes") → cantidad (+5/+10/Todo) +
+  motivo → confirmar. Feed de sesión. "Retirar" en el nav de Operación.
+- **`/api/withdraw/lookup`**: barcode → producto + lotes activos FEFO + total.
+- **`/api/withdraw/commit`**: reparte la cantidad entre lotes en orden FEFO (parcial
+  reduce; total → `retirado`), notas de trazabilidad, devuelve desglose por hueco.
+- **Auditoría `stock_movements`** (migración 0009): quién (id+nombre snapshot), cuándo
+  (timestamptz), qué (nombre+barcode snapshot — sobrevive al borrado), de dónde (hueco),
+  cuánto y por qué. Ambas vías de retiro la escriben; tolerante pre-migración.
+- **Panel → "Movimientos recientes"**: últimos 12 retiros con hora/operario/motivo/hueco
+  (oculta hasta que exista la tabla).
+- Verificado en vivo: scan `013800100399` → 6 uds AMB-16 (FEFO 110d) → retiro de 2 →
+  lote 6→4 con nota; feed "×2 · 2 de AMB-16". Botón "Retirar" del inventario también
+  audita.
+- (El retiro por lote del Inventario, manager/owner, sigue disponible como vía admin.)
 - **Alta de usuarios:** página **/team** (manager/owner) — el admin da de alta empleados
   (correo, nombre, rol, contraseña). **Nadie se auto-registra** en un almacén (sería un
   agujero multi-tenant). `/api/users/create`: warehouse = el del creador (no del input);
@@ -128,14 +150,17 @@ deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
 
 ## Pendiente — operario
 
-6. **Foto del producto por el operario** (capturar con cámara; subir al bucket
+1. **Foto del producto por el operario** (capturar con cámara; subir al bucket
    `product-images` que YA existe). La infraestructura de Storage está lista (helper
    `uploadProductImage` ya escrito); falta el modo "tomar foto" de la cámara + botón.
 2. **OCR de fecha de caducidad** con la cámara (sin IA pesada, por velocidad).
-3. Limpiar estaciones/productos de prueba (ahora se pueden borrar desde el Panel).
-4. Sustituir placeholder `[PRODUCT_NAME]` por el nombre comercial final.
-5. Página legacy `/scan` sigue existiendo (sin enlace en nav) — decidir si se elimina.
-6. (Opcional) Migrar imágenes a Cloudflare R2 (cambiar solo `src/lib/storage.ts`).
+3. **Generar códigos de barras propios** (opcional, pedido por el owner): etiquetas
+   imprimibles Code128/EAN para productos que lleguen sin código legible — mismo
+   patrón que las etiquetas QR de huecos (/dashboard/labels).
+4. Limpiar estaciones/productos de prueba (ahora se pueden borrar desde el Panel).
+5. Sustituir placeholder `[PRODUCT_NAME]` por el nombre comercial final.
+6. Página legacy `/scan` sigue existiendo (sin enlace en nav) — decidir si se elimina.
+7. (Opcional) Migrar imágenes a Cloudflare R2 (cambiar solo `src/lib/storage.ts`).
    Editar capacidad/nivel por hueco individual (hoy es en bloque por estación).
 
 ## Hecho este turno (zonas producto-céntricas)
