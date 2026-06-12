@@ -4,12 +4,19 @@
 // Idempotent: skips images already living in our bucket.
 
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth";
+import { getAuthContext } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mirrorImageToStorage, isStoredImage } from "@/lib/storage";
 
 export async function POST() {
-  const ctx = await requireRole("owner");
+  // API contract: JSON 401/403, never a redirect (proxy.ts skips /api on purpose).
+  const ctx = await getAuthContext();
+  if (!ctx) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  if (ctx.profile.role !== "owner") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
   const wh = ctx.profile.warehouse_id;
   const admin = createAdminClient();
 

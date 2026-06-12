@@ -7,7 +7,7 @@
 // same pattern as /api/enrich), scoped explicitly to the caller's warehouse.
 
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth";
+import { getAuthContext } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -31,7 +31,11 @@ function parseMeasure(v: number | string | null | undefined): number | null {
 }
 
 export async function POST(request: Request) {
-  const ctx = await requireRole("operator", "manager", "owner");
+  // API contract: JSON 401, never a redirect (proxy.ts skips /api on purpose).
+  const ctx = await getAuthContext();
+  if (!ctx) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
 
   let body: IdentifyBody;
   try {

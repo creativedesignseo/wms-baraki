@@ -1,19 +1,37 @@
 # HANDOFF — WMS Baraki Logística
 
-> Realidad **verificada** (no supuesta). Última actualización: 2026-06-11 (rediseño "una orden").
+> Realidad **verificada** (no supuesta). Última actualización: 2026-06-12
+> (verificación total: pipeline + 25 rutas en prod + estado real de la BD).
 
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `cea4c78` — retiro por código de barras + FEFO + auditoría
-- **Deploy Vercel:** `wms-iathhg7yu…` · estado **● READY** · Production · alias activo
+- **Commit desplegado:** ver `git log` (último feat + fix de contrato JSON de APIs)
+- **Deploy Vercel:** estado **● READY** · Production · alias activo
+- **Verificación 2026-06-12** (panel de 3 agentes + pipeline local):
+  - `tsc` / `eslint` / `next build` → limpios.
+  - **25 rutas comprobadas en prod**: 11 páginas (307 sin sesión ✓, login 200 ✓) y
+    14 APIs. Detectado y CORREGIDO: 3 APIs (`products/identify`, `products/delete`,
+    `admin/migrate-images`) devolvían 307/HTML en vez de 401/403 JSON (usaban
+    `requireRole` con redirect en Route Handlers).
+  - **BD real**: 46 ubicaciones con nivel poblado (N1:21, N2:17, N3:8) · migraciones
+    0007/0008/0009 aplicadas · `stock_movements` VIVA (primer retiro auditado:
+    12/06 00:38, Jonatan, Pollo Frito, AMB-16, −1, vendido) · 28 productos (17 con
+    imagen espejada https, 10 sin imagen, 1 URL externa sin espejar) · 30 lotes
+    (29 activos, 1 retirado) · 2 cuentas (owner + operator) · 3 estaciones activas.
 
-## ⚠️ Pendiente INMEDIATO del owner: ejecutar migración 0009 en Supabase
+## ✅ Migración 0009 EJECUTADA por el owner (2026-06-12)
 
-`supabase/migrations/0009_stock_movements.sql` (SQL entregado en chat) crea la tabla
-de **auditoría de retiros** (fecha+hora, operario con nombre, producto snapshot, hueco,
-cantidad, motivo). La app funciona sin ella (las notas del lote registran igual), pero
-el **historial visible en el Panel** y la auditoría real empiezan al ejecutarla.
+La auditoría de retiros está operativa: tabla `stock_movements` con RLS, y el Panel
+muestra "Movimientos recientes". Verificado con un retiro real en producción.
+
+## Caducidad (2026-06-11, commit 66b6f54)
+
+- Selector de fecha **nativo de calendario** en la orden de Guardar (sustituyó al
+  ambiguo MMYY); formato es-ES.
+- El manager/owner puede **editar la caducidad de un lote ya guardado** desde
+  Inventario (sheet por lote) — endpoint `/api/batches/expiry` (YYYY-MM-DD o null).
+- FEFO depende de esta fecha: el retiro saca primero lo que caduca antes.
 
 ## Retiro por código de barras (misión completada 2026-06-11)
 
@@ -140,8 +158,10 @@ deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
 > venir de fuente real (API) o de IA-con-búsqueda que CITE la fuente. NUNCA inventado
 > (misma regla que el peso). Hoy el prompt de enrich NO prohíbe inventar precio → revisar.
 
-1. **Precio de referencia honesto:** precio de fuente real (UPCitemdb `lowest_recorded_price`)
-   + mostrar la fuente; quitar del prompt la generación de precio inventado.
+1. **Precio de referencia honesto:** PARCIALMENTE hecho — el precio real de UPCitemdb
+   (`lowest_recorded_price`) ya se captura, persiste (`reference_price_usd`) y se ve en
+   /approval ("Referencia $X"). FALTA: mostrar la FUENTE y quitar del prompt de la IA
+   el `suggested_price_usd` inventado (gemini.ts y openrouter.ts aún lo piden).
 2. **IA con búsqueda de precios** (enfoque elegido: fuente real + IA con búsqueda que cita
    fuente) para productos sin proveedor.
 3. **Configurar fuentes/marketplaces** (super admin elige Amazon/Walmart/… en Ajustes).

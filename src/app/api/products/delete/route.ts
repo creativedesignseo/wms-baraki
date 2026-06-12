@@ -4,7 +4,7 @@
 // product row, and its mirrored Storage image.
 
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth";
+import { getAuthContext } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PRODUCT_IMAGES_BUCKET, isStoredImage } from "@/lib/storage";
 
@@ -13,8 +13,15 @@ interface DeleteBody {
 }
 
 export async function POST(request: Request) {
-  // operator is intentionally excluded — only manager/owner may delete.
-  const ctx = await requireRole("manager", "owner");
+  // API contract: JSON 401/403, never a redirect (proxy.ts skips /api on purpose).
+  // Operator is intentionally excluded — only manager/owner may delete.
+  const ctx = await getAuthContext();
+  if (!ctx) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  if (ctx.profile.role !== "manager" && ctx.profile.role !== "owner") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
 
   let body: DeleteBody;
   try {
