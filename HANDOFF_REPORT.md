@@ -16,13 +16,13 @@
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** `329bdb4` (feat precios: mediana de offers + números grandes) ·
-  deploy `dpl_EANQFqiEW8GWXt6TZv7s3Dr15emX`.
+- **Código en vivo:** `e9e9c7e` (precio sugerido en Guardar + botón "Buscar precio IA"); los
+  commits posteriores son solo docs (no afectan runtime). Repo: `creativedesignseo/wms-baraki`.
 - **Deploy Vercel:** estado **● READY** · Production · alias `wms-delta-nine.vercel.app` activo.
-- **Verificación 2026-06-20** (pipeline local + prod en vivo): `tsc`/`eslint`/`next build`
-  limpios; `/login` 200 ✓, `/approval` 307→login ✓, `/api/enrich` 401 JSON ✓, `/dashboard`
-  307 ✓; Supabase auth 200 (el proyecto se había pausado y el owner lo reactivó — ver
-  "Incidencias" abajo).
+- **Verificación 2026-06-20** (re-verificado, pipeline local + prod en vivo): `tsc`/`eslint`/
+  `next build` limpios; `/login` 200 ✓, `/stow`·`/approval`·`/dashboard`·`/inventory` 307→login ✓;
+  APIs `stow/scan`·`enrich`·`deep-price`·`withdraw/lookup` → 401 JSON ✓; Supabase auth 200 ✓
+  (el proyecto se había pausado y el owner lo reactivó — ver "Incidencias").
 - **Verificación 2026-06-12** (panel de 3 agentes + pipeline local):
   - `tsc` / `eslint` / `next build` → limpios.
   - **25 rutas comprobadas en prod**: 11 páginas (307 sin sesión ✓, login 200 ✓) y
