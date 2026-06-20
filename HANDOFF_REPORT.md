@@ -31,6 +31,17 @@ Decisión del owner (2026-06-19): el precio sugerido es **precio de mercado inte
 en USD** (referencia, citando comercios) y el gerente fija el de venta. Ningún API da el
 precio de góndola venezolano — eso es esperado, no un fallo.
 
+> 🔧 **CORRECCIÓN PRIORITARIA (acordada 2026-06-20 — PRIMER PENDIENTE del próximo turno):**
+> el owner aclaró que el precio sugerido GRANDE + su edición + el botón Búsqueda Profunda
+> NO deben vivir en la cola `/approval` separada (donde quedaron implementados hoy), sino en
+> el **panel principal de Guardar (`StowClient`)** que se ve al ESCANEAR: una sola pantalla
+> con imagen + ubicación (nº de hueco gigante) + cantidad + **precio sugerido en grande**,
+> editable en el momento. Acción: mover/replicar el bloque de precio (sugerido + procedencia
+> + Búsqueda Profunda) de `ApprovalClient` al rail de producto de `StowClient`.
+> **Pregunta abierta de roles:** hoy el operario NO ve precios (modelo de roles del HANDOFF);
+> decidir si el precio en Guardar lo ven todos o solo manager/owner. Lo de `/approval` queda
+> funcional; decidir si se mantiene, se mueve o se replica.
+
 - **Fase 0 — precio inventado ELIMINADO.** Los prompts de IA (`gemini.ts`, `openrouter.ts`)
   ya NO piden `suggested_price_usd`; `enrich` ya no lo propaga. El precio nunca sale del LLM.
 - **Fase 1 — precio real desde `offers[]` (gratis).** Nuevo `lib/price.ts`:
