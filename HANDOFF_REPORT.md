@@ -1,13 +1,18 @@
 # HANDOFF — WMS Baraki Logística
 
-> Realidad **verificada** (no supuesta). Última actualización: 2026-06-12
-> (verificación total: pipeline + 25 rutas en prod + estado real de la BD).
+> Realidad **verificada** (no supuesta). Última actualización: 2026-06-20
+> (pipeline local + deploy Vercel READY + rutas comprobadas en prod en vivo).
 
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
-- **Commit desplegado:** ver `git log` (último feat + fix de contrato JSON de APIs)
-- **Deploy Vercel:** estado **● READY** · Production · alias activo
+- **Commit desplegado:** `329bdb4` (feat precios: mediana de offers + números grandes) ·
+  deploy `dpl_EANQFqiEW8GWXt6TZv7s3Dr15emX`.
+- **Deploy Vercel:** estado **● READY** · Production · alias `wms-delta-nine.vercel.app` activo.
+- **Verificación 2026-06-20** (pipeline local + prod en vivo): `tsc`/`eslint`/`next build`
+  limpios; `/login` 200 ✓, `/approval` 307→login ✓, `/api/enrich` 401 JSON ✓, `/dashboard`
+  307 ✓; Supabase auth 200 (el proyecto se había pausado y el owner lo reactivó — ver
+  "Incidencias" abajo).
 - **Verificación 2026-06-12** (panel de 3 agentes + pipeline local):
   - `tsc` / `eslint` / `next build` → limpios.
   - **25 rutas comprobadas en prod**: 11 páginas (307 sin sesión ✓, login 200 ✓) y
@@ -19,6 +24,52 @@
     12/06 00:38, Jonatan, Pollo Frito, AMB-16, −1, vendido) · 28 productos (17 con
     imagen espejada https, 10 sin imagen, 1 URL externa sin espejar) · 30 lotes
     (29 activos, 1 retirado) · 2 cuentas (owner + operator) · 3 estaciones activas.
+
+## 💰 Sistema de PRECIOS — núcleo EN VIVO (2026-06-20, commit 329bdb4)
+
+Decisión del owner (2026-06-19): el precio sugerido es **precio de mercado internacional
+en USD** (referencia, citando comercios) y el gerente fija el de venta. Ningún API da el
+precio de góndola venezolano — eso es esperado, no un fallo.
+
+- **Fase 0 — precio inventado ELIMINADO.** Los prompts de IA (`gemini.ts`, `openrouter.ts`)
+  ya NO piden `suggested_price_usd`; `enrich` ya no lo propaga. El precio nunca sale del LLM.
+- **Fase 1 — precio real desde `offers[]` (gratis).** Nuevo `lib/price.ts`:
+  `referencePriceFromOffers()` limpia (USD, >$0.05), recorta outliers con **MAD** (k=3) y
+  devuelve la **MEDIANA** + comercios fuente + puerta de coherencia (n≥3 y dispersión≤60%).
+  `upc.ts` usa esto en vez de `lowest_recorded_price` (basura: Coca-Cola daba $0). Validado
+  con datos reales: Coca-Cola **$0→$9.99**, Pringles descarta packs $34–56 → **$3.49**.
+  `enrich` pre-carga el sugerido SOLO si es coherente; si no, null y lo pone el gerente.
+- **Fase 2 — números gigantes + procedencia.** `ApprovalClient`: precio USD/VES en grande
+  (text-5xl/4xl, patrón del número de hueco); línea de procedencia honesta (verde=sugerido
+  de mercado · ámbar=aproximado poca confianza · gris=sin referencia automática).
+
+**Pendiente del sistema de precios (NO en vivo):**
+- **Fase 3 — Búsqueda Profunda** (botón manual): IA con búsqueda web que CITA fuente. MVP:
+  OpenRouter + tool `web_search`/Exa (~$0.005/uso); alternativa Gemini grounding nativo
+  (1.500 consultas/día gratis, pero ToS obliga a renderizar searchEntryPoint). Candado:
+  solo persiste precio si hay URL real. + migración **0010** (`price_source` CHECK +
+  `price_sources` jsonb → imposible aprobar sin procedencia). Es la fase que resuelve el
+  precio de productos identificados por **OpenFoodFacts** (que no trae offers — p.ej. el
+  de la captura `5607047013403`, que con el núcleo aparece "sin referencia").
+- **Fase 4 — tasa USD/VES automática (BCV)**: botón en Ajustes → `ve.dolarapi.com`.
+  DECISIÓN PENDIENTE DEL OWNER: ¿oficial BCV o paralela/promedio? No cablear a ciegas
+  (descuadraría todos los precios locales de golpe).
+
+## 🩺 Incidencias diagnosticadas (verificadas, sin implementar)
+
+- **Supabase se PAUSÓ por inactividad** (free tier, ~7 días): el 19/06 el login no entraba
+  porque `hiofgzfhmhcvajsbiolz.supabase.co` daba NXDOMAIN. **Reactivado por el owner** desde
+  el dashboard (auth 200 confirmado). Se repausará a los ~7 días sin uso; mitigación real =
+  plan Pro de Supabase cuando el WMS entre en operación.
+- **Visión NO está en Guardar.** El backend `/api/vision` (`identifyFromImage`, Gemini
+  multimodal) y la UI de foto YA existen, pero SOLO en la página legacy `/scan`. En el flujo
+  nuevo (`StowClient`) la cámara solo lee códigos de barras. Pendiente: portar "código no
+  existe → foto → visión" a Guardar. (No usa DeepSeek — usa `gemini-2.5-flash-lite` vía
+  OpenRouter, multimodal y barato.)
+- **Imagen referencial null para productos de OFF.** `StowClient` dibuja la miniatura si
+  `image_url` existe, pero muchos productos identificados por OpenFoodFacts tienen
+  `image_url=null` aunque OFF SÍ tiene la foto (verificado para `5607047013403`). Pendiente:
+  backfill + fallback en vivo de la imagen del proveedor por código.
 
 ## ✅ Migración 0009 EJECUTADA por el owner (2026-06-12)
 
@@ -152,21 +203,19 @@ Next.js 16 (App Router, `proxy.ts`) · React 19 · TS · Tailwind v4 ·
 Supabase (`hiofgzfhmhcvajsbiolz`) · OpenRouter `google/gemini-2.5-flash-lite` ·
 deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
 
-## Pendiente (priorizado) — sistema de PRECIOS (decidido con el owner 2026-06-11)
+## Pendiente — sistema de PRECIOS (estado al 2026-06-20)
 
-> Trampa importante: un LLM NO busca precios reales solo (los inventa). El precio debe
-> venir de fuente real (API) o de IA-con-búsqueda que CITE la fuente. NUNCA inventado
-> (misma regla que el peso). Hoy el prompt de enrich NO prohíbe inventar precio → revisar.
+> Regla de oro: un LLM NO busca precios (los inventa). El precio viene de fuente real (API)
+> o de IA-con-búsqueda que CITE la fuente. NUNCA inventado (misma regla que el peso).
 
-1. **Precio de referencia honesto:** PARCIALMENTE hecho — el precio real de UPCitemdb
-   (`lowest_recorded_price`) ya se captura, persiste (`reference_price_usd`) y se ve en
-   /approval ("Referencia $X"). FALTA: mostrar la FUENTE y quitar del prompt de la IA
-   el `suggested_price_usd` inventado (gemini.ts y openrouter.ts aún lo piden).
-2. **IA con búsqueda de precios** (enfoque elegido: fuente real + IA con búsqueda que cita
-   fuente) para productos sin proveedor.
-3. **Configurar fuentes/marketplaces** (super admin elige Amazon/Walmart/… en Ajustes).
-4. **Precio de venta:** el operario/admin ve la referencia y fija el precio en USD.
-5. **Divisa automática BCV:** tasa oficial del día (cron); bolívares = USD × tasa al vuelo.
+1. ✅ **HECHO (Fase 0-2, en vivo):** precio inventado del LLM eliminado; referencia real =
+   mediana de `offers[]` de UPCitemdb citando comercios; números grandes + procedencia en
+   /approval. Detalle en la sección "Sistema de PRECIOS" arriba.
+2. ⏳ **Fase 3 — IA con búsqueda que cita fuente** (botón Búsqueda Profunda) para productos
+   sin offers (los de OpenFoodFacts). MVP: OpenRouter + Exa. + migración 0010.
+3. ⏳ **Configurar fuentes/marketplaces** (super admin elige Amazon/Walmart/… en Ajustes).
+4. ✅ **Precio de venta:** el gerente ve la referencia y fija el precio USD en /approval.
+5. ⏳ **Fase 4 — Divisa automática BCV** (`ve.dolarapi.com`); decidir oficial vs paralela.
 
 ## Pendiente — operario
 
