@@ -39,9 +39,14 @@ precio de góndola venezolano — eso es esperado, no un fallo.
 > termina el enriquecimiento. **Decisión de roles del owner: el OPERARIO VE el precio** (rompe
 > el viejo "operario = sin precios"). Verificado: tsc/eslint/build, deploy READY, /api/stow/scan
 > 401 JSON.
-> **Pendiente sobre esto (no bloqueante):** (a) por ahora el operario solo VE el precio (en USD);
-> falta decidir si además lo EDITA/aprueba en Guardar y si se muestra el VES (requiere pasar la
-> tasa a `StowClient`); (b) el botón Búsqueda Profunda sigue solo en `/approval` (es manager/owner).
+> ✅ **Búsqueda Profunda EN GUARDAR (2026-06-20, commit e9e9c7e):** si un producto no tiene
+> precio automático (offers), el operario pulsa **"Buscar precio (IA)"** en el rail → la IA
+> con búsqueda web (OpenRouter+Exa) lo busca y lo sugiere CON fuentes citadas (enlace); sin
+> fuente real, no rellena. `/api/deep-price` abierto a cualquier usuario autenticado del
+> almacén (escribe solo SUGERENCIA, scoped por warehouse). Verificado en vivo (IA+UPCitemdb
+> respondiendo; ej. Pizza Red Baron → $4.99 con 3 fuentes).
+> **Pendiente sobre esto (no bloqueante):** (a) el operario VE el precio pero aún no lo
+> EDITA/aprueba en Guardar; (b) falta mostrar el VES (requiere pasar la tasa a `StowClient`).
 
 - **Fase 0 — precio inventado ELIMINADO.** Los prompts de IA (`gemini.ts`, `openrouter.ts`)
   ya NO piden `suggested_price_usd`; `enrich` ya no lo propaga. El precio nunca sale del LLM.
