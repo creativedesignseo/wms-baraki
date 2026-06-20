@@ -62,10 +62,10 @@ precio de góndola venezolano — eso es esperado, no un fallo.
   las fuentes citadas con enlace. Resuelve el precio de productos de **OpenFoodFacts** sin
   offers (p.ej. el de la captura `5607047013403`). Verificado: `/api/deep-price` 401 JSON sin
   sesión. (La función real con búsqueda la prueba el owner con sesión de manager.)
-  - ⚠️ **PENDIENTE DEL OWNER: correr la migración 0010** (`supabase/migrations/0010_price_source.sql`):
-    añade `price_source` + `price_sources` + backfill a 'manual'. El **CHECK duro** (no aprobar
-    sin fuente) va COMENTADO en el SQL; activarlo exige antes cablear `price_source` en todas
-    las vías de aprobado (paso siguiente). La búsqueda profunda YA funciona sin la migración.
+  - ✅ **Migración 0010 EJECUTADA por el owner (2026-06-20)** (`supabase/migrations/0010_price_source.sql`):
+    `price_source` + `price_sources` + backfill a 'manual' aplicados ("Success. No rows returned").
+    El **CHECK duro** (no aprobar sin fuente) sigue COMENTADO en el SQL; activarlo exige antes
+    cablear `price_source` en todas las vías de aprobado (paso siguiente, en código).
 - **Fase 4 — tasa USD/VES automática (BCV)**: botón en Ajustes → `ve.dolarapi.com`.
   DECISIÓN PENDIENTE DEL OWNER: ¿oficial BCV o paralela/promedio? No cablear a ciegas
   (descuadraría todos los precios locales de golpe).
@@ -227,7 +227,7 @@ deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
    mediana de `offers[]` de UPCitemdb citando comercios; números grandes + procedencia en
    /approval. Detalle en la sección "Sistema de PRECIOS" arriba.
 2. ✅ **Fase 3 — IA con búsqueda que cita fuente** (botón Búsqueda Profunda): código EN VIVO
-   (commit d9ec86f, OpenRouter+Exa). ⚠️ Falta que el owner corra la migración 0010.
+   (commit d9ec86f, OpenRouter+Exa) + migración 0010 EJECUTADA por el owner (2026-06-20).
 3. ⏳ **Configurar fuentes/marketplaces** (super admin elige Amazon/Walmart/… en Ajustes).
 4. ✅ **Precio de venta:** el gerente ve la referencia y fija el precio USD en /approval.
 5. ⏳ **Fase 4 — Divisa automática BCV** (`ve.dolarapi.com`); decidir oficial vs paralela.
