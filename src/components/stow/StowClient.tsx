@@ -18,6 +18,7 @@ import {
   Pencil,
   QrCode,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinWall } from "@/components/stow/BinWall";
@@ -44,6 +45,8 @@ interface Scanned {
   weight: number | null; // kg
   volume: number | null; // L
   barcode: string | null;
+  suggestedPriceUsd: number | null; // coherent market median (or null)
+  referencePriceUsd: number | null; // raw median, weaker (or null)
   enrichmentStatus: EnrichmentStatus;
   suggestion: Suggestion;
 }
@@ -213,6 +216,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
         weight: data.product?.weight ?? null,
         volume: data.product?.volume ?? null,
         barcode: data.barcode ?? code,
+        suggestedPriceUsd: data.product?.suggested_price_usd ?? null,
+        referencePriceUsd: data.product?.reference_price_usd ?? null,
         enrichmentStatus: data.enrichment_status,
         suggestion: data.suggestion,
       };
@@ -249,6 +254,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                     name: e.name ?? prev.name,
                     category: e.category ?? prev.category,
                     enrichmentStatus: e.enrichment_status ?? prev.enrichmentStatus,
+                    suggestedPriceUsd: e.suggested_price_usd ?? prev.suggestedPriceUsd,
+                    referencePriceUsd: e.reference_price_usd ?? prev.referencePriceUsd,
                   }
                 : prev,
             );
@@ -733,6 +740,46 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* suggested price — the operator sees it immediately on scan */}
+              <div className="mt-5 border-t border-line pt-4">
+                <div className={`mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
+                  Precio sugerido
+                </div>
+                {scanned.suggestedPriceUsd != null ? (
+                  <>
+                    <div className={`flex items-baseline gap-1 leading-none ${NUM}`}>
+                      <span className="text-2xl font-semibold text-zinc-300">$</span>
+                      <span className="text-5xl font-bold tracking-tight text-ink">
+                        {scanned.suggestedPriceUsd.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
+                      <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+                      Sugerido de mercado · mediana de comercios
+                    </div>
+                  </>
+                ) : scanned.enrichmentStatus === "queued" ? (
+                  <div className="shimmer text-sm text-zinc-400">Consultando precio…</div>
+                ) : scanned.referencePriceUsd != null ? (
+                  <>
+                    <div className={`flex items-baseline gap-1 leading-none ${NUM}`}>
+                      <span className="text-2xl font-semibold text-zinc-300">$</span>
+                      <span className="text-5xl font-bold tracking-tight text-zinc-400">
+                        {scanned.referencePriceUsd.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-amber-700">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+                      Referencia aproximada · poca confianza
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-zinc-400">
+                    Sin precio de referencia automático.
+                  </div>
+                )}
               </div>
 
               {/* quantity */}

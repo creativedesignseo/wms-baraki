@@ -95,7 +95,9 @@ export async function POST(request: Request) {
 
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, category, weight, volume, image_url, barcode, enrichment_status")
+    .select(
+      "id, name, category, weight, volume, image_url, barcode, enrichment_status, suggested_price_usd, reference_price_usd",
+    )
     .eq("id", productId)
     .single();
 
@@ -168,6 +170,9 @@ export async function POST(request: Request) {
       image_url: product?.image_url ?? null,
       weight: product?.weight ?? null,
       volume: product?.volume ?? null,
+      // Price the operator sees immediately on scan (already enriched products).
+      suggested_price_usd: product?.suggested_price_usd ?? null,
+      reference_price_usd: product?.reference_price_usd ?? null,
     },
     zone,
     // What the product's category says (≠ zone when the operator overrides):

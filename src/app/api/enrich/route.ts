@@ -202,6 +202,9 @@ export async function POST(request: Request) {
       name: enriched?.name ?? null,
       category: enriched?.category ?? null,
       inferred_zone: inferZone(enriched?.category ?? null, false),
+      // So the stow screen can show the price live once enrichment finishes.
+      suggested_price_usd: update.suggested_price_usd ?? null,
+      reference_price_usd: update.reference_price_usd ?? null,
     },
     { status: 200 },
   );
