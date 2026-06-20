@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ClipboardCheck, Package, Sparkles, X } from "lucide-react";
+import { Check, ClipboardCheck, Loader2, Package, Search, Sparkles, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { usdToLocal, formatMoney } from "@/lib/money";
-import type { EnrichmentStatus, Product } from "@/lib/types";
+import type { DeepPriceSource, EnrichmentStatus, Product } from "@/lib/types";
 
 const NUM = "font-[family-name:var(--font-num)] tabular-nums";
 const KICKER = `text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`;
@@ -15,6 +15,9 @@ interface Editable extends Product {
   _draftName: string;
   _draftPriceUsd: string;
   _busy?: boolean;
+  _deepBusy?: boolean;
+  _deepSources?: DeepPriceSource[];
+  _deepError?: string | null;
 }
 
 export function ApprovalClient({
@@ -79,6 +82,46 @@ export function ApprovalClient({
     }
     // remove from the queue
     setItems((prev) => prev.filter((it) => it.id !== item.id));
+  }
+
+  // Manual deep search: web-search-capable model finds a real price with cited
+  // sources. Pre-fills the price only when a real source backs it.
+  async function deepSearch(item: Editable) {
+    patch(item.id, { _deepBusy: true, _deepError: null, _deepSources: undefined });
+    try {
+      const res = await fetch("/api/deep-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: item.id }),
+      });
+      const data = (await res.json()) as {
+        price_usd?: number | null;
+        sources?: DeepPriceSource[];
+        error?: string;
+      };
+      if (!res.ok) {
+        patch(item.id, {
+          _deepBusy: false,
+          _deepError: data.error || "No se pudo buscar el precio",
+        });
+        return;
+      }
+      const sources = data.sources ?? [];
+      const hasPrice = data.price_usd != null && sources.length > 0;
+      patch(item.id, {
+        _deepBusy: false,
+        _deepSources: sources,
+        _deepError: hasPrice ? null : "No se encontró un precio con fuente fiable",
+        ...(hasPrice
+          ? {
+              _draftPriceUsd: String(data.price_usd),
+              suggested_price_usd: data.price_usd as number,
+            }
+          : {}),
+      });
+    } catch {
+      patch(item.id, { _deepBusy: false, _deepError: "Error al buscar el precio" });
+    }
   }
 
   return (
@@ -202,11 +245,58 @@ export function ApprovalClient({
                     </div>
                   </div>
 
-                  {/* provenance — always honest about where the number comes from */}
-                  <Provenance
-                    suggested={item.suggested_price_usd}
-                    reference={item.reference_price_usd}
-                  />
+                  {/* provenance + deep search — always honest about the number */}
+                  <div>
+                    <Provenance
+                      suggested={item.suggested_price_usd}
+                      reference={item.reference_price_usd}
+                    />
+
+                    {/* deep search — only offered when there's no solid suggestion */}
+                    {item.suggested_price_usd === null && (
+                      <button
+                        type="button"
+                        disabled={item._deepBusy}
+                        onClick={() => deepSearch(item)}
+                        className="mt-2 inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-[13px] font-semibold text-ink transition hover:bg-zinc-50 active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {item._deepBusy ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Buscando precio…
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-4 w-4" strokeWidth={2} /> Búsqueda profunda
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {item._deepError && (
+                      <p className="mt-2 text-[12px] font-medium text-amber-700">
+                        {item._deepError}
+                      </p>
+                    )}
+
+                    {item._deepSources && item._deepSources.length > 0 && (
+                      <div className="mt-2 text-[12px] text-zinc-500">
+                        <span className="font-medium text-zinc-600">Fuentes:</span>{" "}
+                        {item._deepSources.slice(0, 4).map((s, i) => (
+                          <span key={s.url}>
+                            {i > 0 && " · "}
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline decoration-zinc-300 underline-offset-2 hover:text-ink"
+                            >
+                              {s.merchant || "fuente"}
+                            </a>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* decision */}
                   <div className="mt-5 flex gap-2">

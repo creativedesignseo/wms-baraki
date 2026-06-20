@@ -4,6 +4,8 @@
 
 import type { AIProvider } from "./provider";
 import type {
+  DeepPriceResult,
+  DeepPriceSource,
   EnrichedProduct,
   IdentifiedProduct,
   RawLookupData,
@@ -38,6 +40,14 @@ function num(v: unknown): number | null {
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
 }
 
 type Message = { role: "user"; content: unknown };
@@ -137,5 +147,63 @@ No inventes datos que no puedas ver. No incluyas texto fuera del JSON.`;
       category: str(parsed?.category),
       description: str(parsed?.description),
     };
+  }
+
+  async deepPriceSearch(
+    name: string,
+    barcode: string | null,
+  ): Promise<DeepPriceResult> {
+    const prompt = `Busca en comercios online el PRECIO DE VENTA actual de este producto y
+estima la MEDIANA en USD. Producto: "${name}"${barcode ? ` (código ${barcode})` : ""}.
+Haz UNA sola búsqueda. Devuelve EXCLUSIVAMENTE un objeto JSON:
+{ "price_usd": number|null, "note": string }
+Si NO encuentras un precio respaldado por una fuente real, price_usd debe ser null.
+JAMÁS inventes un precio.`;
+
+    // OpenRouter `web` plugin (Exa by default) → message.annotations[] carry the
+    // real url_citation sources. Don't set response_format here; it can conflict
+    // with the web plugin. We parse JSON tolerantly from the content instead.
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey()}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "[PRODUCT_NAME] WMS",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: "user", content: prompt }],
+        plugins: [{ id: "web", max_results: 5 }],
+        temperature: 0.1,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`OpenRouter ${res.status}: ${await res.text()}`);
+    }
+    const data = (await res.json()) as {
+      choices?: {
+        message?: {
+          content?: string;
+          annotations?: {
+            type?: string;
+            url_citation?: { url?: string; title?: string };
+          }[];
+        };
+      }[];
+    };
+    const msg = data.choices?.[0]?.message;
+    const parsed = parseJson<Record<string, unknown>>(msg?.content ?? "");
+
+    const sources: DeepPriceSource[] = (msg?.annotations ?? [])
+      .filter((a) => a.type === "url_citation" && a.url_citation?.url)
+      .map((a) => {
+        const url = a.url_citation!.url as string;
+        return { merchant: str(a.url_citation?.title) ?? hostnameOf(url), url };
+      });
+
+    // CANDADO: no real source → no price. Never persist an unsourced number.
+    const price = sources.length > 0 ? num(parsed?.price_usd) : null;
+    return { price_usd: price, sources };
   }
 }

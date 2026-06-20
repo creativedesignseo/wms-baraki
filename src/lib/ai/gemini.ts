@@ -4,6 +4,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AIProvider } from "./provider";
 import type {
+  DeepPriceResult,
   EnrichedProduct,
   IdentifiedProduct,
   RawLookupData,
@@ -112,5 +113,15 @@ No inventes datos que no puedas ver. No incluyas texto fuera del JSON.`;
       category: str(parsed?.category),
       description: str(parsed?.description),
     };
+  }
+
+  // Deep price search needs live web grounding with cited sources. The direct
+  // Gemini path here doesn't wire google_search grounding yet, so we refuse
+  // rather than return an unsourced (invented) price. OpenRouter is the active
+  // provider for this feature (see lib/ai/index.ts).
+  async deepPriceSearch(): Promise<DeepPriceResult> {
+    throw new Error(
+      "Búsqueda profunda no disponible con el proveedor Gemini directo; requiere OpenRouter.",
+    );
   }
 }

@@ -182,5 +182,17 @@ export interface IdentifiedProduct {
   description: string | null;
 }
 
+// Deep price search (manual "Búsqueda Profunda"): a web-search-capable model
+// finds a real market price WITH cited sources. price_usd is null unless a real
+// source backs it — never invented.
+export interface DeepPriceSource {
+  merchant: string | null;
+  url: string;
+}
+export interface DeepPriceResult {
+  price_usd: number | null;
+  sources: DeepPriceSource[];
+}
+
 // Raw data passed to enrichText (whatever the UPC lookup returned).
 export type RawLookupData = UpcLookupResult | null;
