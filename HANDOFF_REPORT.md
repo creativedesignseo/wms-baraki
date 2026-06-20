@@ -43,14 +43,18 @@ precio de góndola venezolano — eso es esperado, no un fallo.
   (text-5xl/4xl, patrón del número de hueco); línea de procedencia honesta (verde=sugerido
   de mercado · ámbar=aproximado poca confianza · gris=sin referencia automática).
 
-**Pendiente del sistema de precios (NO en vivo):**
-- **Fase 3 — Búsqueda Profunda** (botón manual): IA con búsqueda web que CITA fuente. MVP:
-  OpenRouter + tool `web_search`/Exa (~$0.005/uso); alternativa Gemini grounding nativo
-  (1.500 consultas/día gratis, pero ToS obliga a renderizar searchEntryPoint). Candado:
-  solo persiste precio si hay URL real. + migración **0010** (`price_source` CHECK +
-  `price_sources` jsonb → imposible aprobar sin procedencia). Es la fase que resuelve el
-  precio de productos identificados por **OpenFoodFacts** (que no trae offers — p.ej. el
-  de la captura `5607047013403`, que con el núcleo aparece "sin referencia").
+**Estado del sistema de precios:**
+- **Fase 3 — Búsqueda Profunda: código EN VIVO (2026-06-20, commit d9ec86f).** Botón manual
+  "Búsqueda profunda" en /approval (manager/owner) → `/api/deep-price` → `deepPriceSearch`
+  de OpenRouter con el plugin web (Exa, ~$0.005/uso). **CANDADO**: sin `url_citation` real, el
+  precio queda null (nunca inventa); persiste `suggested_price_usd` solo con fuente. Muestra
+  las fuentes citadas con enlace. Resuelve el precio de productos de **OpenFoodFacts** sin
+  offers (p.ej. el de la captura `5607047013403`). Verificado: `/api/deep-price` 401 JSON sin
+  sesión. (La función real con búsqueda la prueba el owner con sesión de manager.)
+  - ⚠️ **PENDIENTE DEL OWNER: correr la migración 0010** (`supabase/migrations/0010_price_source.sql`):
+    añade `price_source` + `price_sources` + backfill a 'manual'. El **CHECK duro** (no aprobar
+    sin fuente) va COMENTADO en el SQL; activarlo exige antes cablear `price_source` en todas
+    las vías de aprobado (paso siguiente). La búsqueda profunda YA funciona sin la migración.
 - **Fase 4 — tasa USD/VES automática (BCV)**: botón en Ajustes → `ve.dolarapi.com`.
   DECISIÓN PENDIENTE DEL OWNER: ¿oficial BCV o paralela/promedio? No cablear a ciegas
   (descuadraría todos los precios locales de golpe).
@@ -211,8 +215,8 @@ deploy por **Vercel CLI** (`vercel --prod`) — **no hay remote git**.
 1. ✅ **HECHO (Fase 0-2, en vivo):** precio inventado del LLM eliminado; referencia real =
    mediana de `offers[]` de UPCitemdb citando comercios; números grandes + procedencia en
    /approval. Detalle en la sección "Sistema de PRECIOS" arriba.
-2. ⏳ **Fase 3 — IA con búsqueda que cita fuente** (botón Búsqueda Profunda) para productos
-   sin offers (los de OpenFoodFacts). MVP: OpenRouter + Exa. + migración 0010.
+2. ✅ **Fase 3 — IA con búsqueda que cita fuente** (botón Búsqueda Profunda): código EN VIVO
+   (commit d9ec86f, OpenRouter+Exa). ⚠️ Falta que el owner corra la migración 0010.
 3. ⏳ **Configurar fuentes/marketplaces** (super admin elige Amazon/Walmart/… en Ajustes).
 4. ✅ **Precio de venta:** el gerente ve la referencia y fija el precio USD en /approval.
 5. ⏳ **Fase 4 — Divisa automática BCV** (`ve.dolarapi.com`); decidir oficial vs paralela.
