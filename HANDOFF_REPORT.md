@@ -25,6 +25,40 @@
     imagen espejada https, 10 sin imagen, 1 URL externa sin espejar) · 30 lotes
     (29 activos, 1 retirado) · 2 cuentas (owner + operator) · 3 estaciones activas.
 
+## 🎯 Dirección del producto (aclarada por el owner 2026-06-20)
+
+Esto NO es solo para un bodegón propio: es un **WMS que se va a VENDER** a almacenes/bodegones de
+Venezuela. La propuesta de valor que lo hace vendible: **automatizar el precio de referencia** que
+hoy el operario saca a mano (busca el código en Amazon/Walmart → ve el precio → fija el precio de
+venta). Si el sistema consigue ese precio rápido y fiable, hay producto; si no, no se vende. NO hay
+que anclarse a "Valencia, Venezuela" — el sistema gestiona y precia mercancía no inventariada para
+cualquier almacén cliente.
+
+### Estado real de la "búsqueda automática de precio" (sin humo)
+- **YA EXISTE Y FUNCIONA**: el botón "Buscar precio (IA)" en Guardar usa OpenRouter
+  (gemini-2.5-flash-lite + plugin web/Exa). Es "entrar a internet y buscar el precio", automático,
+  **ya pagado** (saldo OpenRouter $4.98). Probado en vivo: Pizza Red Baron → $4.99 con fuentes reales.
+- **LÍMITE real = fiabilidad, no capacidad.** El LLM a veces interpreta mal: EAN `3083681063349`
+  es Bonduelle verduras congeladas (según OpenFoodFacts), pero la IA web dijo "Nesquik"
+  (alucinación). El candado "solo con fuente" evita el precio inventado, pero el nombre puede fallar.
+- **NO se necesita ninguna API nueva para que funcione.** SerpApi (Google Shopping) sería más
+  fiable/estructurado, pero requiere cuenta/key del owner → el owner no puede/quiere gestionarla →
+  **descartado por ahora**. (Pedirla fue fricción innecesaria.)
+
+### Malentendido aclarado (raíz de la confusión del owner)
+El asistente de desarrollo (Claude) busca en la web porque tiene herramientas; la **APP desplegada
+es código autónomo** que necesita una herramienta para buscar — y **ya la tiene** (OpenRouter). No
+es que "no pueda buscar": ya busca. Lo pendiente es **pulir la FIABILIDAD**, sin pedir nada al owner.
+
+### Próximo paso (usa lo ya pagado, $0 extra, sin pedir APIs)
+Mejorar el flujo de precio que YA existe con OpenRouter:
+1. Identificación fiable PRIMERO: priorizar OpenFoodFacts/UPCitemdb (datos reales) sobre la IA
+   generativa (que es la que alucina el nombre).
+2. Construir nombre desde marca+categoría cuando OFF no trae `product_name` (caso Bonduelle).
+3. Que la búsqueda de precio devuelva Amazon/Walmart con su fuente; opcional: automática en vez de botón.
+4. Caché compartida por código de barras (abarata y escala el producto multi-cliente: el 1er almacén
+   que escanea un producto paga la búsqueda, los demás la reusan gratis).
+
 ## 💰 Sistema de PRECIOS — núcleo EN VIVO (2026-06-20, commit 329bdb4)
 
 Decisión del owner (2026-06-19): el precio sugerido es **precio de mercado internacional
