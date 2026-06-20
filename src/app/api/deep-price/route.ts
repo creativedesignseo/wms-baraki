@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canApprove, getAuthContext } from "@/lib/auth";
+import { getAuthContext } from "@/lib/auth";
 import { getAIProvider } from "@/lib/ai";
 
 interface DeepPriceBody {
@@ -18,10 +18,9 @@ export async function POST(request: Request) {
   if (!ctx) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
-  // Pricing is a manager/owner action (operators never set prices).
-  if (!canApprove(ctx.profile.role)) {
-    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
-  }
+  // Any signed-in warehouse user can trigger a price search — the owner wants the
+  // operator to get a suggested price right in the stow screen. It only writes a
+  // SUGGESTION (never an approved price) and is scoped to the user's warehouse.
 
   let body: DeepPriceBody;
   try {

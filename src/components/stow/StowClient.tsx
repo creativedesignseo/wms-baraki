@@ -19,12 +19,20 @@ import {
   QrCode,
   ShieldCheck,
   Sparkles,
+  Search,
+  Loader2,
 } from "lucide-react";
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinWall } from "@/components/stow/BinWall";
 import { levelMeta } from "@/lib/levels";
 import type { BinStripCell } from "@/lib/rules/putaway";
-import type { Condition, Origin, EnrichmentStatus, Zone } from "@/lib/types";
+import type {
+  Condition,
+  Origin,
+  EnrichmentStatus,
+  Zone,
+  DeepPriceSource,
+} from "@/lib/types";
 
 interface Suggestion {
   zone: Zone;
@@ -120,6 +128,11 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   const [showMeta, setShowMeta] = useState(false);
   const [enrichInfo, setEnrichInfo] = useState<EnrichInfo | null>(null);
 
+  // deep price search (IA + web) for products with no automatic price
+  const [priceSearching, setPriceSearching] = useState(false);
+  const [priceSearchError, setPriceSearchError] = useState<string | null>(null);
+  const [priceSources, setPriceSources] = useState<DeepPriceSource[] | null>(null);
+
   // operator identity editor (name / category / barcode)
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
@@ -191,6 +204,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   const doScan = useCallback(
     async (code: string | null, zoneArg: Zone | null, reuseId?: string | null) => {
     setError(null);
+    setPriceSources(null);
+    setPriceSearchError(null);
     setBusy(true);
     try {
       const res = await fetch("/api/stow/scan", {
@@ -281,6 +296,43 @@ export function StowClient({ zones }: { zones: Zone[] }) {
     if (e.key === "Enter") {
       e.preventDefault();
       if (barcode.trim()) doScan(barcode.trim(), zoneTouched ? zone : null);
+    }
+  }
+
+  // Deep price search: when there's no automatic price, the operator taps to let
+  // the IA find one on the web with cited sources. Writes a SUGGESTION only.
+  async function searchPrice() {
+    if (!scanned) return;
+    const pid = scanned.productId;
+    setPriceSearching(true);
+    setPriceSearchError(null);
+    setPriceSources(null);
+    try {
+      const res = await fetch("/api/deep-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: pid }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPriceSearchError(data.error || "No se pudo buscar el precio");
+        return;
+      }
+      const sources: DeepPriceSource[] = data.sources ?? [];
+      if (data.price_usd != null && sources.length > 0) {
+        setScanned((prev) =>
+          prev && prev.productId === pid
+            ? { ...prev, suggestedPriceUsd: data.price_usd as number }
+            : prev,
+        );
+        setPriceSources(sources);
+      } else {
+        setPriceSearchError("No se encontró un precio con fuente fiable");
+      }
+    } catch {
+      setPriceSearchError("Error al buscar el precio");
+    } finally {
+      setPriceSearching(false);
     }
   }
 
@@ -755,30 +807,79 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                         {scanned.suggestedPriceUsd.toFixed(2)}
                       </span>
                     </div>
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
-                      <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
-                      Sugerido de mercado · mediana de comercios
-                    </div>
+                    {priceSources && priceSources.length > 0 ? (
+                      <div className="mt-1.5 text-[12px] text-zinc-500">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-emerald-700">
+                          <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+                          Encontrado por IA en la web
+                        </span>{" "}
+                        ·{" "}
+                        {priceSources.slice(0, 3).map((s, i) => (
+                          <span key={s.url}>
+                            {i > 0 && " · "}
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline decoration-zinc-300 underline-offset-2 hover:text-ink"
+                            >
+                              {s.merchant || "fuente"}
+                            </a>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
+                        <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+                        Sugerido de mercado · mediana de comercios
+                      </div>
+                    )}
                   </>
                 ) : scanned.enrichmentStatus === "queued" ? (
                   <div className="shimmer text-sm text-zinc-400">Consultando precio…</div>
-                ) : scanned.referencePriceUsd != null ? (
-                  <>
-                    <div className={`flex items-baseline gap-1 leading-none ${NUM}`}>
-                      <span className="text-2xl font-semibold text-zinc-300">$</span>
-                      <span className="text-5xl font-bold tracking-tight text-zinc-400">
-                        {scanned.referencePriceUsd.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-amber-700">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
-                      Referencia aproximada · poca confianza
-                    </div>
-                  </>
                 ) : (
-                  <div className="text-sm text-zinc-400">
-                    Sin precio de referencia automático.
-                  </div>
+                  <>
+                    {scanned.referencePriceUsd != null ? (
+                      <>
+                        <div className={`flex items-baseline gap-1 leading-none ${NUM}`}>
+                          <span className="text-2xl font-semibold text-zinc-300">$</span>
+                          <span className="text-5xl font-bold tracking-tight text-zinc-400">
+                            {scanned.referencePriceUsd.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-amber-700">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+                          Referencia aproximada · poca confianza
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-zinc-400">
+                        Sin precio de referencia automático.
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={priceSearching}
+                      onClick={searchPrice}
+                      className="mt-3 inline-flex h-11 items-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-50"
+                    >
+                      {priceSearching ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Buscando en la web…
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4" strokeWidth={2} /> Buscar precio (IA)
+                        </>
+                      )}
+                    </button>
+                    {priceSearchError && (
+                      <p className="mt-2 text-[12px] font-medium text-amber-700">
+                        {priceSearchError}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
