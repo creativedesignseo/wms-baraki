@@ -3,6 +3,16 @@
 > Realidad **verificada** (no supuesta). Última actualización: 2026-06-20
 > (pipeline local + deploy Vercel READY + rutas comprobadas en prod en vivo).
 
+## 📍 Coordenadas (fijas — no volver a preguntar)
+
+- **GitHub** (privado): https://github.com/creativedesignseo/wms-baraki · rama `feat/wms-mvp`.
+- **Supabase**: ref `hiofgzfhmhcvajsbiolz` · https://hiofgzfhmhcvajsbiolz.supabase.co ·
+  dashboard https://supabase.com/dashboard/project/hiofgzfhmhcvajsbiolz · ⚠️ en cuenta distinta a
+  la del MCP (da "no permission"); free → se pausa a los ~7 días sin uso.
+- **Vercel**: proyecto `wms` · https://vercel.com/creativedesignseo-gmailcoms-projects/wms ·
+  prod **https://wms-delta-nine.vercel.app** · deploy `vercel --prod`.
+- **IA**: OpenRouter `google/gemini-2.5-flash-lite` (NO DeepSeek) · UPCitemdb + OpenFoodFacts.
+
 ## En vivo ahora
 
 - **URL producción:** https://wms-delta-nine.vercel.app
