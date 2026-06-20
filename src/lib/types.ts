@@ -156,7 +156,13 @@ export interface UpcLookupResult {
   image_url?: string | null;
   // weight in kg if the provider reports it; otherwise undefined (never guessed).
   weight?: number | null;
+  // Reference price = MEDIAN of real marketplace offers (see lib/price.ts).
+  // Never invented; null when offers don't support a number.
   reference_price_usd?: number | null;
+  // True when the offers agree closely enough to pre-fill as a suggestion.
+  reference_coherent?: boolean;
+  // Merchant names backing the reference price (the cited "fuente").
+  reference_sources?: string[];
 }
 
 // AIProvider contract outputs.

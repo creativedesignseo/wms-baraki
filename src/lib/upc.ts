@@ -5,6 +5,7 @@
 // /api/enrich (called directly, no internal HTTP hop).
 
 import type { UpcLookupResult } from "@/lib/types";
+import { referencePriceFromOffers, type Offer } from "@/lib/price";
 
 const UPCITEMDB_TRIAL = "https://api.upcitemdb.com/prod/trial/lookup";
 
@@ -15,7 +16,9 @@ interface UpcItemDbItem {
   description?: string;
   images?: string[];
   weight?: string; // e.g. "1.5 pounds" — free text, NOT reliable in kg
-  lowest_recorded_price?: number;
+  lowest_recorded_price?: number; // junk in practice (0 / bulk outliers) — unused
+  // Real per-merchant prices. This is what we aggregate (see lib/price.ts).
+  offers?: Offer[];
 }
 
 interface UpcItemDbResponse {
@@ -40,6 +43,10 @@ async function lookupUpcItemDb(clean: string): Promise<UpcLookupResult> {
     const item = data.items?.[0];
     if (!item) return { found: false };
 
+    // Reference price = robust median of the REAL offers (never lowest_recorded_price,
+    // which is garbage: 0 or bulk-pack outliers). Null when offers don't support one.
+    const ref = referencePriceFromOffers(item.offers);
+
     return {
       found: true,
       name: item.title ?? null,
@@ -50,10 +57,9 @@ async function lookupUpcItemDb(clean: string): Promise<UpcLookupResult> {
       // weight from UPCitemdb is free text ("1.5 pounds"); we do NOT trust it as
       // a numeric kg value. Leave null — weight is never invented.
       weight: null,
-      reference_price_usd:
-        typeof item.lowest_recorded_price === "number"
-          ? item.lowest_recorded_price
-          : null,
+      reference_price_usd: ref.price_usd,
+      reference_coherent: ref.coherent,
+      reference_sources: ref.sources,
     };
   } catch {
     return { found: false };

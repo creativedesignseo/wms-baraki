@@ -93,7 +93,8 @@ export async function POST(request: Request) {
         category: rawData.category ?? null,
         description: rawData.description ?? null,
         weight: rawData.weight ?? null,
-        suggested_price_usd: rawData.reference_price_usd ?? null,
+        // Price is computed from offers below, never carried from the LLM path.
+        suggested_price_usd: null,
       };
       status = "enriched";
     } else {
@@ -146,8 +147,6 @@ export async function POST(request: Request) {
     if (enriched.description) update.description = enriched.description;
     // weight only when a trustworthy source provided it — never invented.
     if (enriched.weight !== null) update.weight = enriched.weight;
-    if (enriched.suggested_price_usd !== null)
-      update.suggested_price_usd = enriched.suggested_price_usd;
     if (rawData?.image_url) {
       // Mirror the provider image into our https bucket (provider URLs are
       // often http:// and get blocked as mixed content). Falls back to the
@@ -159,8 +158,15 @@ export async function POST(request: Request) {
       );
       update.image_url = mirrored ?? rawData.image_url;
     }
-    if (rawData?.reference_price_usd != null)
+    // Price comes ONLY from real offers (lib/price.ts), never the LLM. Keep the
+    // raw reference for display; pre-fill the suggestion only when the offers are
+    // coherent. Otherwise the suggestion stays null and the manager sets it.
+    if (rawData?.reference_price_usd != null) {
       update.reference_price_usd = rawData.reference_price_usd;
+      if (rawData.reference_coherent) {
+        update.suggested_price_usd = rawData.reference_price_usd;
+      }
+    }
   }
 
   const { error: updErr } = await admin

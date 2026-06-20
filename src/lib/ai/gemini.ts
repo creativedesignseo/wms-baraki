@@ -62,12 +62,12 @@ Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma:
   "name": string|null,                 // nombre comercial corto en español
   "category": string|null,             // categoría en español (ej. "Bebidas", "Limpieza")
   "description": string|null,          // 1 frase
-  "weight": number|null,               // PESO EN KG. SOLO si aparece en los datos crudos. NUNCA lo inventes. Si no hay dato fiable, null.
-  "suggested_price_usd": number|null   // precio de venta sugerido en USD si puedes estimarlo de forma razonable, si no null
+  "weight": number|null                // PESO EN KG. SOLO si aparece en los datos crudos. NUNCA lo inventes. Si no hay dato fiable, null.
 }
 
 REGLAS:
 - weight: si los datos crudos no traen un peso fiable, devuelve null. JAMÁS inventes un peso.
+- NUNCA estimes ni inventes precios. El precio se calcula aparte desde fuentes reales.
 - No incluyas texto fuera del JSON.`;
 
     const result = await model.generateContent(prompt);
@@ -78,8 +78,9 @@ REGLAS:
       description: str(parsed?.description) ?? rawData?.description ?? null,
       // weight only survives if the model echoed a real number; never fabricated.
       weight: num(parsed?.weight) ?? rawData?.weight ?? null,
-      suggested_price_usd:
-        num(parsed?.suggested_price_usd) ?? rawData?.reference_price_usd ?? null,
+      // Price is NEVER produced by the LLM (it would be invented). It's computed
+      // downstream from real offers in /api/enrich. See lib/price.ts.
+      suggested_price_usd: null,
     };
   }
 

@@ -167,56 +167,53 @@ export function ApprovalClient({
                   </div>
                 </div>
 
-                {/* prices + decision */}
-                <div className="grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[1fr_auto] lg:items-end">
-                  <div className="grid gap-3 sm:grid-cols-3">
+                {/* prices + decision — big, glanceable numbers */}
+                <div className="px-4 py-5 sm:px-5">
+                  <div className="flex flex-wrap items-end gap-x-10 gap-y-4">
+                    {/* price USD — the protagonist, editable for a one-tap approve */}
                     <div>
-                      <div className={`mb-1 ${KICKER}`}>Sugerido IA · USD</div>
-                      <div
-                        className={`flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-700 ring-1 ring-line ${NUM}`}
-                      >
-                        <Sparkles className="h-4 w-4 shrink-0 text-zinc-400" strokeWidth={1.8} />
-                        {formatMoney(item.suggested_price_usd, "USD")}
-                      </div>
-                      {item.reference_price_usd !== null && (
-                        <div className={`mt-1 text-[11px] text-zinc-400 ${NUM}`}>
-                          Referencia {formatMoney(item.reference_price_usd, "USD")} USD
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor={`usd-${item.id}`} className={`mb-1 block ${KICKER}`}>
-                        Precio USD
+                      <label htmlFor={`usd-${item.id}`} className={`mb-1.5 block ${KICKER}`}>
+                        Precio de venta · USD
                       </label>
-                      <input
-                        id={`usd-${item.id}`}
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
-                        value={item._draftPriceUsd}
-                        onChange={(e) =>
-                          patch(item.id, { _draftPriceUsd: e.target.value })
-                        }
-                        placeholder="0.00"
-                        className={`w-full ${FIELD} ${NUM}`}
-                      />
+                      <div className="flex items-baseline gap-1.5">
+                        <span className={`text-3xl font-semibold text-zinc-300 ${NUM}`}>$</span>
+                        <input
+                          id={`usd-${item.id}`}
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          value={item._draftPriceUsd}
+                          onChange={(e) =>
+                            patch(item.id, { _draftPriceUsd: e.target.value })
+                          }
+                          placeholder="0.00"
+                          className={`w-48 border-0 border-b-2 border-zinc-200 bg-transparent p-0 text-5xl font-bold leading-none tracking-tight text-ink outline-none transition placeholder:text-zinc-300 focus:border-ink ${NUM}`}
+                        />
+                      </div>
                     </div>
+
+                    {/* local — derived, big, read-only */}
                     <div>
-                      <div className={`mb-1 ${KICKER}`}>Local · {currency}</div>
-                      <div
-                        className={`rounded-lg bg-zinc-50 px-3 py-2 text-sm font-semibold text-ink ring-1 ring-line ${NUM}`}
-                      >
+                      <div className={`mb-1.5 ${KICKER}`}>Local · {currency}</div>
+                      <div className={`text-4xl font-bold leading-none text-zinc-500 ${NUM}`}>
                         {formatMoney(local, currency)}
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 lg:flex">
+                  {/* provenance — always honest about where the number comes from */}
+                  <Provenance
+                    suggested={item.suggested_price_usd}
+                    reference={item.reference_price_usd}
+                  />
+
+                  {/* decision */}
+                  <div className="mt-5 flex gap-2">
                     <button
                       disabled={item._busy}
                       onClick={() => decide(item, "approved")}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-50"
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-6 text-sm font-semibold text-white transition hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-50"
                     >
                       <Check className="h-4 w-4" strokeWidth={2} />
                       Aprobar
@@ -224,7 +221,7 @@ export function ApprovalClient({
                     <button
                       disabled={item._busy}
                       onClick={() => decide(item, "rejected")}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-5 text-sm font-semibold text-red-600 transition hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
                     >
                       <X className="h-4 w-4" strokeWidth={2} />
                       Rechazar
@@ -237,6 +234,43 @@ export function ApprovalClient({
         </div>
       )}
     </div>
+  );
+}
+
+// Where the number comes from — never claim a price we don't have a source for.
+function Provenance({
+  suggested,
+  reference,
+}: {
+  suggested: number | null;
+  reference: number | null;
+}) {
+  if (suggested !== null) {
+    return (
+      <div className="mt-2.5 flex items-center gap-1.5 text-[12px] font-medium text-emerald-700">
+        <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+        <span>
+          Sugerido de mercado {formatMoney(suggested, "USD")} · mediana de comercios
+          (UPCitemdb)
+        </span>
+      </div>
+    );
+  }
+  if (reference !== null) {
+    return (
+      <div className="mt-2.5 flex items-center gap-1.5 text-[12px] font-medium text-amber-700">
+        <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+        <span>
+          Referencia aproximada {formatMoney(reference, "USD")} · poca confianza,
+          confirma el precio
+        </span>
+      </div>
+    );
+  }
+  return (
+    <p className="mt-2.5 text-[12px] text-zinc-400">
+      Sin referencia automática de mercado — fija el precio de venta.
+    </p>
   );
 }
 

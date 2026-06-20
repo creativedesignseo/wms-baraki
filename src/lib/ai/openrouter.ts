@@ -85,12 +85,12 @@ Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma:
   "name": string|null,
   "category": string|null,
   "description": string|null,
-  "weight": number|null,
-  "suggested_price_usd": number|null
+  "weight": number|null
 }
 
 REGLAS:
 - weight: PESO EN KG, SOLO si aparece en los datos crudos. JAMÁS lo inventes. Si no hay dato fiable, null.
+- NUNCA estimes ni inventes precios. El precio se calcula aparte desde fuentes reales.
 - No incluyas texto fuera del JSON.`;
 
     const content = await chat([{ role: "user", content: prompt }]);
@@ -100,8 +100,9 @@ REGLAS:
       category: str(parsed?.category) ?? rawData?.category ?? null,
       description: str(parsed?.description) ?? rawData?.description ?? null,
       weight: num(parsed?.weight) ?? rawData?.weight ?? null,
-      suggested_price_usd:
-        num(parsed?.suggested_price_usd) ?? rawData?.reference_price_usd ?? null,
+      // Price is NEVER produced by the LLM (it would be invented). It's computed
+      // downstream from real offers in /api/enrich. See lib/price.ts.
+      suggested_price_usd: null,
     };
   }
 
