@@ -31,16 +31,17 @@ Decisión del owner (2026-06-19): el precio sugerido es **precio de mercado inte
 en USD** (referencia, citando comercios) y el gerente fija el de venta. Ningún API da el
 precio de góndola venezolano — eso es esperado, no un fallo.
 
-> 🔧 **CORRECCIÓN PRIORITARIA (acordada 2026-06-20 — PRIMER PENDIENTE del próximo turno):**
-> el owner aclaró que el precio sugerido GRANDE + su edición + el botón Búsqueda Profunda
-> NO deben vivir en la cola `/approval` separada (donde quedaron implementados hoy), sino en
-> el **panel principal de Guardar (`StowClient`)** que se ve al ESCANEAR: una sola pantalla
-> con imagen + ubicación (nº de hueco gigante) + cantidad + **precio sugerido en grande**,
-> editable en el momento. Acción: mover/replicar el bloque de precio (sugerido + procedencia
-> + Búsqueda Profunda) de `ApprovalClient` al rail de producto de `StowClient`.
-> **Pregunta abierta de roles:** hoy el operario NO ve precios (modelo de roles del HANDOFF);
-> decidir si el precio en Guardar lo ven todos o solo manager/owner. Lo de `/approval` queda
-> funcional; decidir si se mantiene, se mueve o se replica.
+> ✅ **CORRECCIÓN APLICADA (2026-06-20, commit a5f8c22): precio sugerido EN VIVO en Guardar.**
+> El operario ve el **precio sugerido en grande** en el rail de producto de `StowClient` al
+> escanear, junto a imagen + ubicación + cantidad. `scan` y `enrich` devuelven
+> `suggested_price_usd`/`reference_price_usd`; el rail los pinta con procedencia honesta
+> (sugerido de mercado / referencia aproximada / sin precio), y se actualiza en vivo cuando
+> termina el enriquecimiento. **Decisión de roles del owner: el OPERARIO VE el precio** (rompe
+> el viejo "operario = sin precios"). Verificado: tsc/eslint/build, deploy READY, /api/stow/scan
+> 401 JSON.
+> **Pendiente sobre esto (no bloqueante):** (a) por ahora el operario solo VE el precio (en USD);
+> falta decidir si además lo EDITA/aprueba en Guardar y si se muestra el VES (requiere pasar la
+> tasa a `StowClient`); (b) el botón Búsqueda Profunda sigue solo en `/approval` (es manager/owner).
 
 - **Fase 0 — precio inventado ELIMINADO.** Los prompts de IA (`gemini.ts`, `openrouter.ts`)
   ya NO piden `suggested_price_usd`; `enrich` ya no lo propaga. El precio nunca sale del LLM.
