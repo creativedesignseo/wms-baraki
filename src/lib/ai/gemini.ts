@@ -67,6 +67,10 @@ Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma:
 }
 
 REGLAS:
+- name/category: TRADUCE y NORMALIZA al español los datos crudos. Eres un TRADUCTOR, no un
+  identificador: NUNCA sustituyas el producto por otro distinto ni inventes un nombre que no se
+  derive de los datos crudos. Si traen marca/nombre/categoría, respétalos (solo tradúcelos). Si
+  los datos crudos no permiten identificar el producto, devuelve name y category en null.
 - weight: si los datos crudos no traen un peso fiable, devuelve null. JAMÁS inventes un peso.
 - NUNCA estimes ni inventes precios. El precio se calcula aparte desde fuentes reales.
 - No incluyas texto fuera del JSON.`;

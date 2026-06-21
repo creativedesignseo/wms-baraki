@@ -77,6 +77,27 @@ interface OffProduct {
   image_url?: string;
 }
 
+// When OFF has the product but no clean product_name (only brand + category —
+// the real Bonduelle case), build a true name from those fields instead of
+// returning null and letting the LLM "fill in" (and hallucinate).
+function composeName(
+  productName?: string,
+  brands?: string,
+  categories?: string,
+): string | null {
+  const real = productName?.trim();
+  if (real) return real;
+  const brand = brands?.split(",")[0]?.trim();
+  const cat = categories
+    ?.split(",")[0]
+    ?.trim()
+    .replace(/^[a-z]{2}:/i, "") // strip taxonomy prefix like "en:"
+    .replace(/-/g, " ")
+    .trim();
+  const parts = [brand, cat].filter((x): x is string => !!x && x.length > 0);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 async function lookupOpenFoodFacts(clean: string): Promise<UpcLookupResult> {
   try {
     const res = await fetch(
@@ -91,7 +112,7 @@ async function lookupOpenFoodFacts(clean: string): Promise<UpcLookupResult> {
     }
     return {
       found: true,
-      name: p.product_name || null,
+      name: composeName(p.product_name, p.brands, p.categories),
       brand: p.brands || null,
       category: p.categories || null,
       description: null,
@@ -102,6 +123,22 @@ async function lookupOpenFoodFacts(clean: string): Promise<UpcLookupResult> {
   } catch {
     return { found: false };
   }
+}
+
+// GTIN check digit (EAN-13 / UPC-A / EAN-8). Returns false ONLY when the code is
+// all-digits of a GTIN length and the check digit doesn't match — i.e. a likely
+// mis-scan. Non-numeric or non-GTIN lengths are not our concern → true.
+export function isValidGtin(code: string): boolean {
+  const c = code.trim();
+  if (!/^\d+$/.test(c)) return true;
+  if (![8, 12, 13].includes(c.length)) return true;
+  const digits = c.split("").map(Number);
+  const check = digits.pop() as number;
+  let sum = 0;
+  for (let i = digits.length - 1, w = 3; i >= 0; i--, w = w === 3 ? 1 : 3) {
+    sum += digits[i] * w;
+  }
+  return (10 - (sum % 10)) % 10 === check;
 }
 
 export async function lookupUpc(barcode: string): Promise<UpcLookupResult> {

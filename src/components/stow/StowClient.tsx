@@ -132,6 +132,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   const [priceSearching, setPriceSearching] = useState(false);
   const [priceSearchError, setPriceSearchError] = useState<string | null>(null);
   const [priceSources, setPriceSources] = useState<DeepPriceSource[] | null>(null);
+  // GTIN check-digit failed on the scanned code → likely a mis-scan.
+  const [barcodeSuspect, setBarcodeSuspect] = useState(false);
 
   // operator identity editor (name / category / barcode)
   const [showEdit, setShowEdit] = useState(false);
@@ -152,12 +154,79 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   // on the selection is sticky (cold-cart workflow) and mismatches only advise.
   const [zoneTouched, setZoneTouched] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusBarcode = useCallback(() => {
     requestAnimationFrame(() => barcodeRef.current?.focus());
   }, []);
   useEffect(() => focusBarcode(), [focusBarcode]);
 
+  // Stop the price safety-net poll (see startPricePoll).
+  const stopPricePoll = useCallback(() => {
+    if (pollRef.current) {
+      clearTimeout(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+  useEffect(() => () => stopPricePoll(), [stopPricePoll]);
+
+  // Safety net for the price: /api/enrich is fired-and-forgotten and updates the
+  // UI via a single .then(); if that fails or lags, the SERVER still wrote the
+  // price to the DB. This bounded poll re-reads it until it shows up, then stops.
+  const startPricePoll = useCallback(
+    (productId: string) => {
+      stopPricePoll();
+      let attempts = 0;
+      const tick = async () => {
+        attempts++;
+        try {
+          const res = await fetch("/api/stow/scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_id: productId }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setScanned((prev) =>
+              prev && prev.productId === productId
+                ? {
+                    ...prev,
+                    name: data.product?.name ?? prev.name,
+                    label: data.product?.name || prev.label,
+                    category: data.product?.category ?? prev.category,
+                    imageUrl: data.product?.image_url ?? prev.imageUrl,
+                    suggestedPriceUsd:
+                      data.product?.suggested_price_usd ?? prev.suggestedPriceUsd,
+                    referencePriceUsd:
+                      data.product?.reference_price_usd ?? prev.referencePriceUsd,
+                    enrichmentStatus: data.enrichment_status ?? prev.enrichmentStatus,
+                  }
+                : prev,
+            );
+            if (
+              data.product?.suggested_price_usd != null ||
+              data.enrichment_status !== "queued"
+            ) {
+              stopPricePoll();
+              return;
+            }
+          }
+        } catch {
+          // network blip — keep trying until attempts run out
+        }
+        if (attempts < 7) {
+          pollRef.current = setTimeout(tick, 2000);
+        } else {
+          stopPricePoll();
+        }
+      };
+      pollRef.current = setTimeout(tick, 2000);
+    },
+    [stopPricePoll],
+  );
+
   function resetForNext() {
+    stopPricePoll();
+    setBarcodeSuspect(false);
     setScanned(null);
     setSelectedBinId(null);
     setShowLocSheet(false);
@@ -237,6 +306,7 @@ export function StowClient({ zones }: { zones: Zone[] }) {
         suggestion: data.suggestion,
       };
       setScanned(s);
+      setBarcodeSuspect(!!data.barcode_suspect);
       setSelectedBinId(s.suggestion.binId);
       setBinVerified(false);
       setBinScanError(null);
@@ -284,13 +354,15 @@ export function StowClient({ zones }: { zones: Zone[] }) {
             }
           })
           .catch(() => {});
+        // Safety net in case the .then() above never lands (slow/failed fetch).
+        startPricePoll(pid);
       }
     } catch {
       setError("Error de red al escanear");
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [startPricePoll]);
 
   function onBarcodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
@@ -742,6 +814,15 @@ export function StowClient({ zones }: { zones: Zone[] }) {
 
             {/* RAIL — what the hand must touch */}
             <div className="flex flex-1 flex-col border-t border-line bg-white p-5 lg:border-l lg:border-t-0 lg:p-6">
+              {barcodeSuspect && (
+                <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-800 ring-1 ring-amber-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.8} />
+                  <span>
+                    Código posiblemente mal escaneado (dígito de control no cuadra). Vuelve a
+                    escanear, o usa &quot;Editar&quot; para corregirlo o &quot;Sin código&quot;.
+                  </span>
+                </div>
+              )}
               {/* identity */}
               <div className="flex items-start gap-3">
                 {scanned.imageUrl && (

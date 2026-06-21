@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthContext } from "@/lib/auth";
 import { suggestBin, inferZone, type BinForStow } from "@/lib/rules/putaway";
+import { isValidGtin } from "@/lib/upc";
 import type { Zone, EnrichmentStatus } from "@/lib/types";
 
 const ZONES: Zone[] = ["general", "refrigerado", "congelado", "hazmat"];
@@ -163,6 +164,8 @@ export async function POST(request: Request) {
     // the product's stored barcode wins (it may have been hand-corrected),
     // falling back to whatever was scanned this request.
     barcode: product?.barcode ?? barcode,
+    // GTIN check-digit failed → likely a mis-scan (warn the operator, don't block).
+    barcode_suspect: barcode ? !isValidGtin(barcode) : false,
     enrichment_status: (product?.enrichment_status ?? "manual") as EnrichmentStatus,
     product: {
       name: product?.name ?? null,

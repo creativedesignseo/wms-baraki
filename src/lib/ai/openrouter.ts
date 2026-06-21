@@ -99,6 +99,11 @@ Devuelve EXCLUSIVAMENTE un objeto JSON con esta forma:
 }
 
 REGLAS:
+- name/category: TRADUCE y NORMALIZA al español los datos crudos. Eres un TRADUCTOR, no un
+  identificador: NUNCA sustituyas el producto por otro distinto ni inventes un nombre que no se
+  derive de los datos crudos. Si los datos crudos traen marca/nombre/categoría, respétalos
+  (solo tradúcelos). Si los datos crudos están vacíos o no permiten identificar el producto,
+  devuelve name y category en null — NO adivines.
 - weight: PESO EN KG, SOLO si aparece en los datos crudos. JAMÁS lo inventes. Si no hay dato fiable, null.
 - NUNCA estimes ni inventes precios. El precio se calcula aparte desde fuentes reales.
 - No incluyas texto fuera del JSON.`;
@@ -153,11 +158,16 @@ No inventes datos que no puedas ver. No incluyas texto fuera del JSON.`;
     name: string,
     barcode: string | null,
   ): Promise<DeepPriceResult> {
-    const prompt = `Busca en comercios online el PRECIO DE VENTA actual de este producto y
-estima la MEDIANA en USD. Producto: "${name}"${barcode ? ` (código ${barcode})` : ""}.
-Haz UNA sola búsqueda. Devuelve EXCLUSIVAMENTE un objeto JSON:
-{ "price_usd": number|null, "note": string }
-Si NO encuentras un precio respaldado por una fuente real, price_usd debe ser null.
+    // Anchor the query on the BARCODE: product pages cite the exact EAN/UPC, so
+    // searching by code avoids Exa returning a similarly-named but wrong product.
+    const anchor = barcode ? `"${barcode}" ${name}` : name;
+    const prompt = `Busca en comercios online (Amazon, Walmart, etc.) el PRECIO DE VENTA actual
+y estima la MEDIANA en USD del producto con código de barras ${barcode ?? "(desconocido)"} —
+"${name}". Consulta exactamente: ${anchor}.
+IMPORTANTE: solo usa páginas cuyo producto coincida con ese código de barras / nombre; si los
+resultados son de OTRO producto, devuelve price_usd null. Haz UNA sola búsqueda.
+Devuelve EXCLUSIVAMENTE un objeto JSON: { "price_usd": number|null, "note": string }.
+Si NO encuentras un precio respaldado por una fuente real que coincida, price_usd debe ser null.
 JAMÁS inventes un precio.`;
 
     // OpenRouter `web` plugin (Exa by default) → message.annotations[] carry the
