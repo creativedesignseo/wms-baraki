@@ -16,21 +16,25 @@ export function SettingsClient({
   name: initialName,
   currency: initialCurrency,
   rate: initialRate,
+  margin: initialMargin,
 }: {
   id: string;
   name: string;
   currency: string;
   rate: number;
+  margin: number;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [currency, setCurrency] = useState(initialCurrency);
   const [rate, setRate] = useState(String(initialRate));
+  const [margin, setMargin] = useState(String(initialMargin));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const rateNum = Number(rate);
+  const marginNum = Number(margin);
   const preview = usdToLocal(1, Number.isFinite(rateNum) ? rateNum : 0);
 
   async function save(e: React.FormEvent) {
@@ -45,6 +49,10 @@ export function SettingsClient({
       setError("El nombre no puede estar vacío");
       return;
     }
+    if (!Number.isFinite(marginNum) || marginNum < 0) {
+      setError("El margen debe ser un número ≥ 0");
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase
@@ -55,9 +63,25 @@ export function SettingsClient({
         exchange_rate_usd: rateNum,
       })
       .eq("id", id);
-    setSaving(false);
     if (error) {
+      setSaving(false);
       setError(error.message);
+      return;
+    }
+    // Margin is saved separately so it tolerates migration 0011 not being run yet
+    // (the column may not exist; the rest still saves).
+    const { error: marginErr } = await supabase
+      .from("warehouses")
+      .update({ default_margin_pct: marginNum })
+      .eq("id", id);
+    setSaving(false);
+    if (marginErr) {
+      setMsg(null);
+      setError(
+        /column|does not exist|schema cache/i.test(marginErr.message)
+          ? "Datos guardados, pero el margen necesita la migración 0011 (córrela en Supabase)."
+          : marginErr.message,
+      );
       return;
     }
     setMsg("Guardado correctamente");
@@ -120,6 +144,26 @@ export function SettingsClient({
               className={`${INPUT} ${NUM}`}
             />
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="wh-margin" className={LABEL}>
+            Margen de venta por defecto (%)
+          </label>
+          <input
+            id="wh-margin"
+            type="number"
+            min={0}
+            step="1"
+            value={margin}
+            onChange={(e) => setMargin(e.target.value)}
+            placeholder="30"
+            className={`${INPUT} ${NUM}`}
+          />
+          <p className="mt-1 text-[12px] text-zinc-400">
+            Se aplica al precio sugerido para proponer el precio de venta. El operario
+            puede ajustarlo al guardar.
+          </p>
         </div>
 
         <div className="rounded-lg border border-line bg-zinc-50 px-3 py-2.5 text-sm text-zinc-600">

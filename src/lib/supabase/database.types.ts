@@ -25,6 +25,8 @@ type WarehouseRow = {
   country: string | null;
   currency_local: string;
   exchange_rate_usd: number;
+  // Optional until migration 0011 lands (code falls back to 30).
+  default_margin_pct?: number;
   owner_id: string | null;
   created_at: string;
 };
@@ -35,6 +37,7 @@ type WarehouseInsert = {
   country?: string | null;
   currency_local?: string;
   exchange_rate_usd?: number;
+  default_margin_pct?: number;
   owner_id?: string | null;
   created_at?: string;
 };

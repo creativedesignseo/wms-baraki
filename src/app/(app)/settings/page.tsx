@@ -9,9 +9,10 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const ctx = await requireRole("owner");
   const supabase = await createClient();
+  // select("*") so default_margin_pct comes through even before migration 0011.
   const { data: warehouse } = await supabase
     .from("warehouses")
-    .select("id, name, currency_local, exchange_rate_usd")
+    .select("*")
     .eq("id", ctx.profile.warehouse_id)
     .single();
 
@@ -26,7 +27,7 @@ export default async function SettingsPage() {
             Ajustes del almacén
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Nombre, moneda local y tasa de cambio del almacén.
+            Nombre, moneda local, tasa de cambio y margen de venta por defecto.
           </p>
         </header>
 
@@ -36,6 +37,7 @@ export default async function SettingsPage() {
             name={warehouse.name}
             currency={warehouse.currency_local}
             rate={warehouse.exchange_rate_usd}
+            margin={warehouse.default_margin_pct ?? 30}
           />
         ) : (
           <div

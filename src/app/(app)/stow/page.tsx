@@ -24,5 +24,18 @@ export default async function StowPage() {
   const present = new Set((bins ?? []).map((b) => b.zone));
   const zones = ZONE_ORDER.filter((z) => present.has(z));
 
-  return <StowClient zones={zones} />;
+  // Warehouse pricing context: currency + FX rate + default margin. select("*")
+  // tolerates default_margin_pct not existing yet (pre-migration 0011 → fallback).
+  const { data: warehouse } = await supabase
+    .from("warehouses")
+    .select("*")
+    .eq("id", wh)
+    .maybeSingle();
+  const currency = warehouse?.currency_local ?? "USD";
+  const rate = warehouse?.exchange_rate_usd ?? 1;
+  const marginPct = warehouse?.default_margin_pct ?? 30;
+
+  return (
+    <StowClient zones={zones} currency={currency} rate={rate} marginPct={marginPct} />
+  );
 }

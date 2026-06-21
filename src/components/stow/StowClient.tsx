@@ -25,6 +25,7 @@ import {
 import { CameraScanner } from "@/components/CameraScanner";
 import { BinWall } from "@/components/stow/BinWall";
 import { levelMeta } from "@/lib/levels";
+import { usdToLocal, formatMoney } from "@/lib/money";
 import type { BinStripCell } from "@/lib/rules/putaway";
 import type {
   Condition,
@@ -109,7 +110,17 @@ function heightCue(level: number): { Icon: typeof ArrowUp; verb: string } {
   return { Icon: ArrowUp, verb: "Alcanza · alto" };
 }
 
-export function StowClient({ zones }: { zones: Zone[] }) {
+export function StowClient({
+  zones,
+  currency,
+  rate,
+  marginPct,
+}: {
+  zones: Zone[];
+  currency: string;
+  rate: number;
+  marginPct: number;
+}) {
   const [zone, setZone] = useState<Zone>(zones[0] ?? "general");
   const [barcode, setBarcode] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -134,6 +145,9 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   const [priceSources, setPriceSources] = useState<DeepPriceSource[] | null>(null);
   // GTIN check-digit failed on the scanned code → likely a mis-scan.
   const [barcodeSuspect, setBarcodeSuspect] = useState(false);
+  // Sale price (USD) the operator confirms: suggested × (1 + margin), editable.
+  const [salePrice, setSalePrice] = useState("");
+  const [salePriceTouched, setSalePriceTouched] = useState(false);
 
   // operator identity editor (name / category / barcode)
   const [showEdit, setShowEdit] = useState(false);
@@ -168,6 +182,15 @@ export function StowClient({ zones }: { zones: Zone[] }) {
     }
   }, []);
   useEffect(() => () => stopPricePoll(), [stopPricePoll]);
+
+  // Sale price shown/sent: the operator's edit wins; otherwise it's the
+  // suggestion × the warehouse margin. Derived (no effect) so it stays in sync.
+  const suggestedUsd = scanned?.suggestedPriceUsd ?? null;
+  const saleValue = salePriceTouched
+    ? salePrice
+    : suggestedUsd != null
+      ? (suggestedUsd * (1 + marginPct / 100)).toFixed(2)
+      : "";
 
   // Safety net for the price: /api/enrich is fired-and-forgotten and updates the
   // UI via a single .then(); if that fails or lags, the SERVER still wrote the
@@ -227,6 +250,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
   function resetForNext() {
     stopPricePoll();
     setBarcodeSuspect(false);
+    setSalePrice("");
+    setSalePriceTouched(false);
     setScanned(null);
     setSelectedBinId(null);
     setShowLocSheet(false);
@@ -483,6 +508,8 @@ export function StowClient({ zones }: { zones: Zone[] }) {
           origin,
           // native date input gives YYYY-MM-DD directly — no silent parsing.
           expiration_date: expiry || null,
+          // sale price the operator confirms (they're the judge); null = leave it.
+          sale_price_usd: saleValue.trim() === "" ? null : Number(saleValue),
         }),
       });
       const data = await res.json();
@@ -961,6 +988,45 @@ export function StowClient({ zones }: { zones: Zone[] }) {
                       </p>
                     )}
                   </>
+                )}
+              </div>
+
+              {/* sale price — what the operator will actually charge (the judge) */}
+              <div className="mt-4 border-t border-line pt-4">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 ${NUM}`}>
+                    Precio de venta
+                  </span>
+                  {suggestedUsd != null &&
+                    saleValue.trim() !== "" &&
+                    Number(saleValue) > 0 &&
+                    !Number.isNaN(Number(saleValue)) && (
+                      <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                        {Number(saleValue) >= suggestedUsd ? "+" : ""}
+                        {Math.round((Number(saleValue) / suggestedUsd - 1) * 100)}% sobre referencia
+                      </span>
+                    )}
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-2xl font-semibold text-zinc-300 ${NUM}`}>$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={saleValue}
+                    onChange={(e) => {
+                      setSalePrice(e.target.value);
+                      setSalePriceTouched(true);
+                    }}
+                    placeholder="0.00"
+                    className={`w-44 border-0 border-b-2 border-zinc-200 bg-transparent p-0 text-5xl font-bold leading-none tracking-tight text-ink outline-none placeholder:text-zinc-300 focus:border-ink ${NUM}`}
+                  />
+                </div>
+                {saleValue.trim() !== "" && !Number.isNaN(Number(saleValue)) && (
+                  <div className={`mt-1.5 text-2xl font-bold leading-none text-zinc-500 ${NUM}`}>
+                    {formatMoney(usdToLocal(Number(saleValue), rate), currency)}
+                  </div>
                 )}
               </div>
 

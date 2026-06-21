@@ -4,8 +4,10 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext } from "@/lib/auth";
 import { inferZone } from "@/lib/rules/putaway";
+import { usdToLocal } from "@/lib/money";
 import type { Condition, Origin } from "@/lib/types";
 
 const ZONE_LABEL: Record<string, string> = {
@@ -26,6 +28,8 @@ interface ConfirmBody {
   origin: Origin;
   expiration_date: string | null;
   notes?: string | null;
+  // Sale price the operator confirms (they're the judge). Optional.
+  sale_price_usd?: number | null;
 }
 
 export async function POST(request: Request) {
@@ -88,6 +92,33 @@ export async function POST(request: Request) {
       { error: "No se pudo guardar el lote", detail: error?.message },
       { status: 500 },
     );
+  }
+
+  // The operator is the judge: if they set a sale price, fix it now. Operators
+  // can't UPDATE products under RLS, so this goes through the admin client,
+  // scoped to id + warehouse_id. Derives the local price from the FX rate.
+  const salePrice =
+    typeof body.sale_price_usd === "number" &&
+    Number.isFinite(body.sale_price_usd) &&
+    body.sale_price_usd >= 0
+      ? body.sale_price_usd
+      : null;
+  if (salePrice !== null) {
+    const { data: whRow } = await supabase
+      .from("warehouses")
+      .select("exchange_rate_usd")
+      .eq("id", wh)
+      .maybeSingle();
+    const rate = whRow?.exchange_rate_usd ?? 1;
+    await createAdminClient()
+      .from("products")
+      .update({
+        approved_price_usd: salePrice,
+        approved_price_local: usdToLocal(salePrice, rate),
+        review_status: "approved",
+      })
+      .eq("id", body.product_id)
+      .eq("warehouse_id", wh);
   }
 
   // Zone sanity check AFTER saving (never blocks the operator): if the product
