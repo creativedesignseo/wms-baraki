@@ -60,14 +60,33 @@ El asistente de desarrollo (Claude) busca en la web porque tiene herramientas; l
 es código autónomo** que necesita una herramienta para buscar — y **ya la tiene** (OpenRouter). No
 es que "no pueda buscar": ya busca. Lo pendiente es **pulir la FIABILIDAD**, sin pedir nada al owner.
 
-### Próximo paso (usa lo ya pagado, $0 extra, sin pedir APIs)
-Mejorar el flujo de precio que YA existe con OpenRouter:
-1. Identificación fiable PRIMERO: priorizar OpenFoodFacts/UPCitemdb (datos reales) sobre la IA
-   generativa (que es la que alucina el nombre).
-2. Construir nombre desde marca+categoría cuando OFF no trae `product_name` (caso Bonduelle).
-3. Que la búsqueda de precio devuelva Amazon/Walmart con su fuente; opcional: automática en vez de botón.
-4. Caché compartida por código de barras (abarata y escala el producto multi-cliente: el 1er almacén
-   que escanea un producto paga la búsqueda, los demás la reusan gratis).
+### ✅ HECHO (2026-06-21, commit d420144) — flujo precio/identificación más fiable
+- **Red de seguridad del precio** (`StowClient`): poll acotado que re-lee `/api/stow/scan` hasta que
+  el precio aparece (el server ya lo escribió) → arregla el "a veces sin precio" del fire-and-forget.
+- **Checksum del código** (`isValidGtin` en `upc.ts`): el scan marca `barcode_suspect` y Guardar avisa
+  "código mal escaneado" (distingue mal-escaneo de producto-no-existe).
+- **Nombre desde marca+categoría** (`composeName` en `upc.ts`): cuando OFF trae marca+categoría sin
+  `product_name`, construye "Bonduelle · Verduras congeladas" en vez de null.
+- **LLM = traductor, no identificador** (prompts de `openrouter.ts`/`gemini.ts` endurecidos): NUNCA
+  sustituye el producto ni inventa → mata el caso Bonduelle→Nesquik.
+- **Búsqueda de precio anclada al código de barras** (`deepPriceSearch`): evita el producto cruzado.
+
+### 📊 Hallazgos de medición en vivo (2026-06-21) — para decisiones de negocio
+- **UPCitemdb cubre ~33%, NO el 99%** que se asumía. Cubre productos US populares; **europeos
+  (Bonduelle, Barilla) y locales NO están** (es API estadounidense). OFF rescata identificación (no
+  precio) → ~58% identificados. **→ el botón "Buscar precio IA" es necesario para la MAYORÍA, no un
+  caso raro.** Si se quiere cobertura ALTA de precio automático, evaluar una **API de Google Shopping
+  de pago** (SerpApi) — el dueño no puede gestionar otra API por ahora.
+- **A/B `deepseek-v4-flash` vs `gemini-2.5-flash-lite`** (búsqueda de precio): deepseek existe y es
+  más barato ($0.09/M), y **NO alucina — pero es DEMASIADO conservador** (devuelve null aunque haya
+  fuente con precio, ej. Barilla en amazon.es). Gemini consigue más precios con el candado de fuente.
+  **Decisión: se mantiene gemini-2.5-flash-lite.** Ambos reciben las mismas fuentes (las busca Exa).
+
+### Pendiente (no bloqueante)
+- Caché compartida por código de barras (abarata y escala multi-cliente: el 1er almacén que escanea un
+  producto paga la búsqueda, los demás la reusan gratis). Es la palanca de eficiencia real.
+- P2: unificar la UI de los dos precios + cablear `price_source` (la columna ya existe por 0010).
+- Evaluar SerpApi (Google Shopping) si se quiere subir la cobertura de precio automático.
 
 ## 💰 Sistema de PRECIOS — núcleo EN VIVO (2026-06-20, commit 329bdb4)
 
